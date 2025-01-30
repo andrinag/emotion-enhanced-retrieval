@@ -12,6 +12,6 @@
 /captures
 .externalNativeBuild
 .cxx
-.png
-.csv
+*.png
+*.csv
 local.properties
