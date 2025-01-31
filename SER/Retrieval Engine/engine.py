@@ -9,13 +9,14 @@ import io
 from pgvector.psycopg2 import register_vector
 from transformers import CLIPProcessor, CLIPModel
 import uvicorn
+from fastapi.responses import FileResponse
 
 
 """
 Extremely simple engine that lets you upload images (and vectors) into a postgres database
 """
 
-folder_path = "./images/archive(11)/images" # the downloaded pokemon dataset
+folder_path = "images/archive/images"  # the downloaded pokemon dataset
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32") # pretrained CLIP model
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
@@ -74,6 +75,54 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/search/")
+async def search_images(query: str):
+    """
+    allows you to search for images
+    :param query:
+    :return: returns the images
+    """
+    try:
+        cursor = conn.cursor()
+        query_embedding = get_embedding(input_text=query)
+        cursor.execute("""
+            SELECT filename, embedding <#> %s::vector AS distance
+            FROM multimedia
+            ORDER BY distance ASC
+            LIMIT 3;
+        """, (query_embedding.tolist(),))
+
+        results = cursor.fetchall()
+        cursor.close()
+        return {"results": [{"filename": row[0], "distance": row[1]} for row in results]}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+IMAGE_FOLDER = "./images/archive/images/"
+
+
+@app.get("/images/{filename}")
+async def get_image(filename: str):
+    """
+    Retrieves the image name from the DB and then serves the local file in the browser.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT filename FROM multimedia WHERE filename = %s", (filename,))
+    result = cursor.fetchone()
+    cursor.close()
+
+    if result:
+        image_path = os.path.join(IMAGE_FOLDER, filename)
+
+        if os.path.exists(image_path):
+            return FileResponse(image_path, media_type="image/png")
+        return {"error": f"Image file {filename} not found on disk"}
+
+    return {"error": f"Image {filename} not found in database"}
 
 
 if __name__ == "__main__":

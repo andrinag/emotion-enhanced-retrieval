@@ -1,12 +1,19 @@
 import os
 import requests
+from fastapi.responses import FileResponse
 
 """
 Simple script that lets you upload the pokemon pictures dataset into a postgres (pgvector) database
 """
 
-folder_path = "./images/archive(11)/images"
+folder_path = "images/archive/images"
 url = "http://127.0.0.1:8000/upload/"
+url_query = "http://127.0.0.1:8000/search/?query={query}"
+url_image = "http://127.0.0.1:8000/images/?image={image}"
+
+folder_path = "images/archive/images"  # the downloaded pokemon dataset
+
+query = "girl"
 
 
 def get_file_list():
@@ -18,23 +25,19 @@ def get_file_list():
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
 
-        if filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        if filename.lower().endswith((".png")):
             files.append(("files", (filename, open(file_path, "rb"), "image/jpeg")))
 
     return files
 
 
-if __name__ == "__main__":
-    files = get_file_list()
 
-    if not files:
-        print("No images found in the folder!")
-    else:
-        try:
-            response = requests.post(url, files=files)
-            print(response.text)
-        except requests.exceptions.RequestException as e:
-            print("Request failed:", e)
-        finally:
-            for _, f in files:
-                f[1].close()
+if __name__ == "__main__":
+    response = requests.get(url_query)
+    response = response.json()
+    filenames = [item["filename"] for item in response["results"]]
+    print(filenames)  # Output: ['ekans.png', 'bonsly.png']
+    for filename in filenames:
+        print(filename)
+        image = filename
+        requests.get(url_image)
