@@ -12,11 +12,8 @@ import uvicorn
 from fastapi.responses import FileResponse
 import cv2
 import kagglehub
+from fastapi.responses import RedirectResponse
 
-
-"""
-Extremely simple engine that lets you upload images (and vectors) into a postgres database
-"""
 
 folder_path = "images/archive/images"  # the downloaded pokemon dataset
 video_path = "videos"
@@ -101,52 +98,35 @@ async def upload_files(files: list[UploadFile] = File(...)):
     finally:
         cursor.close()
 
-@app.get("/search/")
+@app.get("/search/{query}")
 async def search_images(query: str):
-    """
-    allows you to search for images
-    :param query:
-    :return: returns the images
-    """
     try:
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
-        # return three of the closest images to what i searched for
+        # TODO: doesn't fully work, need to figure how to make it better
         cursor.execute("""
-            SELECT filename, embedding <#> %s::vector AS distance
-            FROM multimedia
+            SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
+            FROM multimedia_embeddings me
+            JOIN multimedia_objects mo ON me.object_id = mo.object_id
             ORDER BY distance ASC
             LIMIT 3;
         """, (query_embedding.tolist(),))
 
         results = cursor.fetchall()
         cursor.close()
-        return {"results": [{"filename": row[0], "distance": row[1]} for row in results]}
+        return {
+            "results": [
+                {
+                    "location": row[0],
+                    "frame_time": row[1] if row[1] is not None else None,
+                    "distance": row[2]
+                }
+                for row in results
+            ]
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-@app.get("/images/{filename}")
-async def get_image(filename: str):
-    """
-    Retrieves the image name from the DB and then serves the local file in the browser.
-    """
-    IMAGE_FOLDER = "./images/archive/images/"
-    cursor = conn.cursor()
-    cursor.execute("SELECT filename FROM multimedia WHERE filename = %s", (filename,))
-    result = cursor.fetchone()
-    cursor.close()
-
-    if result:
-        image_path = os.path.join(IMAGE_FOLDER, filename)
-
-        if os.path.exists(image_path):
-            return FileResponse(image_path, media_type="image/png")
-        return {"error": f"Image file {filename} not found on disk"}
-
-    return {"error": f"Image {filename} not found in database"}
 
 
 def extract_frames(video_path, output_folder, seconds=1):
