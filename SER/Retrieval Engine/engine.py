@@ -4,28 +4,22 @@ from fastapi import FastAPI, UploadFile, File
 import torch
 from PIL import Image
 import psycopg2
-import open_clip
 import io
 from pgvector.psycopg2 import register_vector
 from transformers import CLIPProcessor, CLIPModel
 import uvicorn
-from fastapi.responses import FileResponse
 import cv2
-import kagglehub
-from fastapi.responses import RedirectResponse
 
 
-folder_path = "images/archive/images"  # the downloaded pokemon dataset
-video_path = "videos"
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32") # pretrained CLIP model
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-FRAME_STORAGE = "./frames"
+FRAME_STORAGE = "./frames" # local storage for the video frames
 if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
 app = FastAPI()
 
-# connection to the database
+# connection to the local database
 conn = psycopg2.connect(
     dbname="bachelorthesis",
     user="postgres",
@@ -34,6 +28,7 @@ conn = psycopg2.connect(
     port="5432"
 )
 register_vector(conn)
+
 
 def get_embedding(input_text=None, input_image=None):
     """
@@ -52,10 +47,14 @@ def get_embedding(input_text=None, input_image=None):
             print(model.get_image_features(**inputs).numpy().flatten())
             return model.get_image_features(**inputs).numpy().flatten()
 
+
+###################### UPLOADING IMAGES ##############################
+
 def insert_image_metadata(filename):
     """
-    inserts the image id, type, location into the multimedia_objects table
-    returns the object id
+    inserts the metadata of the image into the multimedia_object table
+    :param filename: name of the image file
+    :return: object_id of the just inserted image tuple
     """
     try:
         cursor = conn.cursor()
@@ -70,7 +69,9 @@ def insert_image_metadata(filename):
 @app.post("/upload_image/")
 async def upload_files(files: list[UploadFile] = File(...)):
     """
-    Upload images, compute embeddings, and store them in the new database schema.
+    uploads the local images form a list into the DB with their embeddings
+    :param files: list of image files to upload
+    :return: status of request
     """
     try:
         cursor = conn.cursor()
@@ -98,40 +99,16 @@ async def upload_files(files: list[UploadFile] = File(...)):
     finally:
         cursor.close()
 
-@app.get("/search/{query}")
-async def search_images(query: str):
-    try:
-        cursor = conn.cursor()
-        query_embedding = get_embedding(input_text=query)
-        # TODO: doesn't fully work, need to figure how to make it better
-        cursor.execute("""
-            SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
-            FROM multimedia_embeddings me
-            JOIN multimedia_objects mo ON me.object_id = mo.object_id
-            ORDER BY distance ASC
-            LIMIT 3;
-        """, (query_embedding.tolist(),))
 
-        results = cursor.fetchall()
-        cursor.close()
-        return {
-            "results": [
-                {
-                    "location": row[0],
-                    "frame_time": row[1] if row[1] is not None else None,
-                    "distance": row[2]
-                }
-                for row in results
-            ]
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+######################## UPLOADING VIDEO ################################
 
 def extract_frames(video_path, output_folder, seconds=1):
     """
-    extract video every given amount of seconds (here 1)
+    extracts frames from a video in given interval (here 1s)
+    :param video_path: path to where the video file is stored
+    :param output_folder: path to where frames should be stored
+    :param seconds: in what interval frames should be taken
+    :return:
     """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -156,7 +133,13 @@ def extract_frames(video_path, output_folder, seconds=1):
     cap.release()
     print(f"Frames extracted to {output_folder}")
 
+
 def insert_video_metadata(video_filename):
+    """
+    inserts the metadata of the video into the multimedia_object table
+    :param video_filename: name of the video file
+    :return: object_id of the just inserted video tuple
+    """
     cursor = conn.cursor()
     try:
         cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
@@ -171,7 +154,9 @@ def insert_video_metadata(video_filename):
 @app.post("/upload_videos/")
 async def process_videos(files: list[UploadFile] = File(...)):
     """
-    upload method for videos. argument is a list of videos that are then processed (frame, embedding)
+    takes list of videos, makes frames of them, caculates embedding and then stores it in the DB
+    :param files: video files to be stored
+    :return: status code
     """
     cursor = conn.cursor()
     try:
@@ -202,6 +187,43 @@ async def process_videos(files: list[UploadFile] = File(...)):
             print(f"Stored frames from {file.filename} in DB.")
 
         return {"message": f"Uploaded and processed {len(files)} videos successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+################## TEXT TO IMAGE SEARCH #########################
+@app.get("/search/{query}")
+async def search_images(query: str):
+    """
+    allows you to search for similar images via query (text) input
+    :param query: string
+    :return: returns the 3 closest images for the query
+    """
+    try:
+        cursor = conn.cursor()
+        query_embedding = get_embedding(input_text=query)
+        # TODO: doesn't fully work, need to figure how to make it better
+        cursor.execute("""
+            SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
+            FROM multimedia_embeddings me
+            JOIN multimedia_objects mo ON me.object_id = mo.object_id
+            ORDER BY distance ASC
+            LIMIT 3;
+        """, (query_embedding.tolist(),))
+
+        results = cursor.fetchall()
+        cursor.close()
+        return {
+            "results": [
+                {
+                    "location": row[0],
+                    "frame_time": row[1] if row[1] is not None else None,
+                    "distance": row[2]
+                }
+                for row in results
+            ]
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
