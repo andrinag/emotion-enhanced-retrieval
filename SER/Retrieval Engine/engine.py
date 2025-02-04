@@ -6,13 +6,16 @@ from PIL import Image
 import psycopg2
 import io
 from pgvector.psycopg2 import register_vector
-from transformers import CLIPProcessor, CLIPModel
 import uvicorn
 import cv2
+import open_clip
 
+# load the clip model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+model.eval()
+tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32") # pretrained CLIP model
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 FRAME_STORAGE = "./frames" # local storage for the video frames
 if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
@@ -39,13 +42,14 @@ def get_embedding(input_text=None, input_image=None):
     """
     with torch.no_grad():
         if input_text:
-            inputs = processor(text=input_text, return_tensors="pt", padding=True)
-            return model.get_text_features(**inputs).numpy().flatten()
+            inputs = tokenizer([input_text])
+            features = model.encode_text(inputs)
+            return features.numpy().flatten()
         elif input_image:
             image = Image.open(io.BytesIO(input_image)).convert("RGB")
-            inputs = processor(images=image, return_tensors="pt")
-            print(model.get_image_features(**inputs).numpy().flatten())
-            return model.get_image_features(**inputs).numpy().flatten()
+            inputs = preprocess(image).unsqueeze(0)
+            features = model.encode_image(inputs)
+            return features.numpy().flatten()
 
 
 ###################### UPLOADING IMAGES ##############################
@@ -78,9 +82,7 @@ async def upload_files(files: list[UploadFile] = File(...)):
         for file in files:
             file_content = file.file.read()
             file.file.seek(0)
-            image = Image.open(io.BytesIO(file_content)).convert("RGB")
-            inputs = processor(images=image, return_tensors="pt")
-            embedding = model.get_image_features(**inputs).detach().numpy().flatten()
+            embedding = get_embedding(input_image=file_content)
 
             # first insert the image and its meatdata (file, id etc.)
             object_id = insert_image_metadata(file.filename)
@@ -173,11 +175,13 @@ async def process_videos(files: list[UploadFile] = File(...)):
                     continue
 
                 frame_time = int(filename.split("_")[-1].split(".")[0])
-                image = Image.open(os.path.join(FRAME_STORAGE, filename)).convert("RGB")
-                inputs = processor(images=image, return_tensors="pt")
-                embedding = model.get_image_features(**inputs).detach().numpy().flatten()
+                image_path = os.path.join(FRAME_STORAGE, filename)
+                image = Image.open(image_path).convert("RGB")
 
-                # store every thing (frame and embedding) in DB
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format="PNG")
+                img_byte_arr = img_byte_arr.getvalue()
+                embedding = get_embedding(input_image=img_byte_arr)
                 cursor.execute(
                     "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
                     (object_id, frame_time, embedding.tolist())
