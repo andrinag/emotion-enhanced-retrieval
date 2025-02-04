@@ -7,8 +7,8 @@ import shutil
 Simple script that lets you upload the caltec pictures dataset into a postgres (pgvector) database
 """
 
-query = ("dog")
-url = f"http://127.0.0.1:8000/search/{query}"
+query = ("Schmetterling")
+url = f"http://127.0.0.1:8001/search/{query}"
 
 response = requests.get(url)
 

@@ -196,42 +196,6 @@ async def process_videos(files: list[UploadFile] = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-################## TEXT TO IMAGE SEARCH #########################
-@app.get("/search/{query}")
-async def search_images(query: str):
-    """
-    allows you to search for similar images via query (text) input
-    :param query: string
-    :return: returns the 3 closest images for the query
-    """
-    try:
-        cursor = conn.cursor()
-        query_embedding = get_embedding(input_text=query)
-        # TODO: doesn't fully work, need to figure how to make it better
-        cursor.execute("""
-            SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
-            FROM multimedia_embeddings me
-            JOIN multimedia_objects mo ON me.object_id = mo.object_id
-            ORDER BY distance ASC
-            LIMIT 3;
-        """, (query_embedding.tolist(),))
-
-        results = cursor.fetchall()
-        cursor.close()
-        return {
-            "results": [
-                {
-                    "location": row[0],
-                    "frame_time": row[1] if row[1] is not None else None,
-                    "distance": row[2]
-                }
-                for row in results
-            ]
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
