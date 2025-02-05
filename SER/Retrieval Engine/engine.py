@@ -21,6 +21,7 @@ if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
 app = FastAPI()
+BATCH_SIZE = 10
 
 # connection to the local database
 conn = psycopg2.connect(
@@ -116,24 +117,25 @@ def extract_frames(video_path, output_folder, seconds=1):
         os.makedirs(output_folder)
 
     cap = cv2.VideoCapture(video_path)
-    frame_count = 0
     success, image = cap.read()
     fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_interval = int(fps * seconds)
+    frame_interval = int(fps * seconds) if fps > 0 else 1
+    frame_count = 0
+    frame_paths = []
 
     while success:
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count)
         success, image = cap.read()
-
         if success:
-            frame_filename = f"{output_folder}/frame_{frame_count // frame_interval}.jpg"
+            frame_filename = os.path.join(output_folder, f"frame_{frame_count}.jpg")
             cv2.imwrite(frame_filename, image)
+            frame_paths.append((frame_filename, frame_count // frame_interval))
             frame_count += frame_interval
         else:
             break
 
     cap.release()
-    print(f"Frames extracted to {output_folder}")
+    return frame_paths
 
 
 def insert_video_metadata(video_filename):
@@ -168,27 +170,31 @@ async def process_videos(files: list[UploadFile] = File(...)):
             with open(video_path, "wb") as f:
                 f.write(file.file.read())
             object_id = insert_video_metadata(file.filename)
-            extract_frames(video_path, FRAME_STORAGE)
+            frame_data = extract_frames(video_path, FRAME_STORAGE)
+            batch = []
 
-            for filename in sorted(os.listdir(FRAME_STORAGE)):
-                if not filename.endswith((".jpg", ".png")):
-                    continue
-
-                frame_time = int(filename.split("_")[-1].split(".")[0])
-                image_path = os.path.join(FRAME_STORAGE, filename)
-                image = Image.open(image_path).convert("RGB")
-
+            for frame_path, frame_time in frame_data:
+                image = Image.open(frame_path).convert("RGB")
                 img_byte_arr = io.BytesIO()
                 image.save(img_byte_arr, format="PNG")
                 img_byte_arr = img_byte_arr.getvalue()
                 embedding = get_embedding(input_image=img_byte_arr)
-                cursor.execute(
+                batch.append((object_id, frame_time, embedding.tolist()))
+                if (len(batch)) >= BATCH_SIZE:
+                    cursor.executemany(
+                        "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
+                        batch,
+                    )
+                    conn.commit()
+                    batch.clear()
+            # print(f"Stored frames from {file.filename} in DB.")
+            # in case there is stuff left in the batch
+            if batch:
+                cursor.executemany(
                     "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
-                    (object_id, frame_time, embedding.tolist())
+                    batch,
                 )
-
-            conn.commit()
-            print(f"Stored frames from {file.filename} in DB.")
+                conn.commit()
 
         return {"message": f"Uploaded and processed {len(files)} videos successfully"}
 
