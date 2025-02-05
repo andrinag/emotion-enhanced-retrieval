@@ -25,8 +25,9 @@ app = FastAPI()
 # connection to the local database
 conn = psycopg2.connect(
     dbname="multimedia_db",
-    user="postgres",
+    user="test",
     host="localhost",
+    password="123",
     port="5432"
 )
 register_vector(conn)
