@@ -25,7 +25,7 @@ BATCH_SIZE = 10
 
 # connection to the local database
 conn = psycopg2.connect(
-    dbname="bachelorthesis",
+    dbname="multimedia_db",
     user="postgres",
     password="123",
     host="localhost",
