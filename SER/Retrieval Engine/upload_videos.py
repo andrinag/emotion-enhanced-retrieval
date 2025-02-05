@@ -1,15 +1,9 @@
 import os
 import requests
-import kagglehub
-import shutil
 
 """
 Simple script that lets you upload the caltect video dataset into a postgres (pgvector) database via engine
 """
-
-def download_kaggle_videos():
-    path = kagglehub.dataset_download("example/example")
-    print("Path to dataset files:", path)
 
 
 def get_video_list_from_folder(folder_path):

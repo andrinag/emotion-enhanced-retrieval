@@ -1,7 +1,6 @@
-import os
+
 import requests
-import kagglehub
-import shutil
+
 
 """
 Simple script that lets you upload the caltec pictures dataset into a postgres (pgvector) database

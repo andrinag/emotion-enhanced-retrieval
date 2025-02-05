@@ -1,8 +1,5 @@
 import os
 import requests
-import kagglehub
-import shutil
-
 """
 Simple script that lets you upload the caltec pictures dataset into a postgres (pgvector) database
 """
@@ -24,10 +21,6 @@ def get_file_list():
             files.append(("files", (filename, open(file_path, "rb"), "image/jpeg")))
 
     return files
-
-def download_kaggle_images():
-    path = kagglehub.dataset_download("example/example")
-    print("Path to dataset files:", path)
 
 
 if __name__ == "__main__":
