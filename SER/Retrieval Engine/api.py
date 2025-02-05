@@ -26,7 +26,6 @@ app = FastAPI()
 conn = psycopg2.connect(
     dbname="multimedia_db",
     user="postgres",
-    password="123",
     host="localhost",
     port="5432"
 )
