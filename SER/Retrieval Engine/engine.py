@@ -1,5 +1,5 @@
 import os
-from http.client import HTTPException
+from fastapi import HTTPException
 from fastapi import FastAPI, UploadFile, File
 import torch
 from PIL import Image

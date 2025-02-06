@@ -23,5 +23,6 @@ if __name__ == "__main__":
 
     for video_path in video_list:
         with open(video_path, "rb") as video_file:
-            response = requests.post(url, files={"files": video_file})
-            print(response.json())
+            response = requests.post(url, files=[("files", video_file)])
+            print(response.status_code)
+            print(response.text)
