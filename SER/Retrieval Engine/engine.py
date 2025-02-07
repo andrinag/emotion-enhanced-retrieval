@@ -9,6 +9,17 @@ from pgvector.psycopg2 import register_vector
 import uvicorn
 import cv2
 import open_clip
+from concurrent.futures import ThreadPoolExecutor
+import traceback
+
+from concurrent.futures import ThreadPoolExecutor
+from fastapi import UploadFile, File, HTTPException
+import os
+import traceback
+
+MAX_WORKERS = 4
+BATCH_SIZE = 50
+FRAME_STORAGE = "./frames"
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -21,17 +32,23 @@ if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
 app = FastAPI()
-BATCH_SIZE = 10
-
 # connection to the local database
-conn = psycopg2.connect(
+from psycopg2 import pool
+
+db_pool = psycopg2.pool.SimpleConnectionPool(
+    1, 20,  # Min and max connections
     dbname="multimedia_db",
     user="test",
-    host="localhost",
     password="123",
-    port="5432"
+    host="localhost",
+    port="5433"
 )
-register_vector(conn)
+
+def get_db_connection():
+    return db_pool.getconn()
+
+def release_db_connection(conn):
+    db_pool.putconn(conn)
 
 
 def get_embedding(input_text=None, input_image=None):
@@ -62,11 +79,11 @@ def insert_image_metadata(filename):
     :return: object_id of the just inserted image tuple
     """
     try:
-        cursor = conn.cursor()
+        cursor = get_db_connection().cursor()
         cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
                        ("image", filename))
         object_id = cursor.fetchone()[0]
-        conn.commit()
+        get_db_connection().commit()
         return object_id
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -79,7 +96,7 @@ async def upload_files(files: list[UploadFile] = File(...)):
     :return: status of request
     """
     try:
-        cursor = conn.cursor()
+        cursor = get_db_connection().cursor()
         for file in files:
             file_content = file.file.read()
             file.file.seek(0)
@@ -92,11 +109,11 @@ async def upload_files(files: list[UploadFile] = File(...)):
                 (object_id, embedding.tolist())
             )
 
-        conn.commit()
+        get_db_connection().commit()
         return {"message": f"Uploaded {len(files)} images successfully"}
 
     except Exception as e:
-        conn.rollback()
+        get_db_connection().rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
@@ -117,22 +134,23 @@ def extract_frames(video_path, output_folder, seconds=1):
         os.makedirs(output_folder)
 
     cap = cv2.VideoCapture(video_path)
-    success, image = cap.read()
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_interval = int(fps * seconds) if fps > 0 else 1
+
     frame_count = 0
     frame_paths = []
 
-    while success:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count)
+    while True:
         success, image = cap.read()
-        if success:
+        if not success:
+            break
+
+        if frame_count % frame_interval == 0:
             frame_filename = os.path.join(output_folder, f"frame_{frame_count}.jpg")
             cv2.imwrite(frame_filename, image)
             frame_paths.append((frame_filename, frame_count // frame_interval))
-            frame_count += frame_interval
-        else:
-            break
+
+        frame_count += 1
 
     cap.release()
     return frame_paths
@@ -144,62 +162,69 @@ def insert_video_metadata(video_filename):
     :param video_filename: name of the video file
     :return: object_id of the just inserted video tuple
     """
-    cursor = conn.cursor()
+    cursor = get_db_connection().cursor()
     try:
         cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
                        ("video", video_filename))
         object_id = cursor.fetchone()[0]
-        conn.commit()
+        get_db_connection().commit()
         return object_id
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/upload_videos/")
-async def process_videos(files: list[UploadFile] = File(...)):
-    """
-    takes list of videos, makes frames of them, caculates embedding and then stores it in the DB
-    :param files: video files to be stored
-    :return: status code
-    """
+
+def process_frame(frame_info, object_id):
+    """Processes a single frame to generate an embedding."""
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        frame_path, frame_time = frame_info
+        image = Image.open(frame_path).convert("RGB")
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format="PNG")
+        embedding = get_embedding(input_image=img_byte_arr.getvalue())
+
+        cursor.execute(
+            "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
+            (object_id, frame_time, embedding.tolist())
+        )
+        conn.commit()
+    except Exception as e:
+        print("Error processing frame:", traceback.format_exc())
+        conn.rollback()
+    finally:
+        cursor.close()
+        release_db_connection(conn)
+
+@app.post("/upload_videos/")
+async def process_videos(files: list[UploadFile] = File(...)):
+    try:
         for file in files:
-            # first save the video locally to get frames and embedding
             video_path = os.path.join(FRAME_STORAGE, file.filename)
             with open(video_path, "wb") as f:
                 f.write(file.file.read())
-            object_id = insert_video_metadata(file.filename)
-            frame_data = extract_frames(video_path, FRAME_STORAGE)
-            batch = []
 
-            for frame_path, frame_time in frame_data:
-                image = Image.open(frame_path).convert("RGB")
-                img_byte_arr = io.BytesIO()
-                image.save(img_byte_arr, format="PNG")
-                img_byte_arr = img_byte_arr.getvalue()
-                embedding = get_embedding(input_image=img_byte_arr)
-                batch.append((object_id, frame_time, embedding.tolist()))
-                if (len(batch)) >= BATCH_SIZE:
-                    cursor.executemany(
-                        "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
-                        batch,
-                    )
-                    conn.commit()
-                    batch.clear()
-            # print(f"Stored frames from {file.filename} in DB.")
-            # in case there is stuff left in the batch
-            if batch:
-                cursor.executemany(
-                    "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
-                    batch,
-                )
-                conn.commit()
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
+                           ("video", file.filename))
+            object_id = cursor.fetchone()[0]
+            conn.commit()
+            cursor.close()
+            release_db_connection(conn)
+
+            frame_data = extract_frames(video_path, FRAME_STORAGE)
+
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                executor.map(lambda f: process_frame(f, object_id), frame_data)
 
         return {"message": f"Uploaded and processed {len(files)} videos successfully"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_message = traceback.format_exc()
+        print("Error Traceback:", error_message)
+        return {"error": str(e), "traceback": error_message}
 
 
 
