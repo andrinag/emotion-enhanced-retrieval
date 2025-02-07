@@ -41,7 +41,7 @@ db_pool = psycopg2.pool.SimpleConnectionPool(
     user="test",
     password="123",
     host="localhost",
-    port="5433"
+    port="5432"
 )
 
 def get_db_connection():
@@ -68,6 +68,18 @@ def get_embedding(input_text=None, input_image=None):
             inputs = preprocess(image).unsqueeze(0)
             features = model.encode_image(inputs)
             return features.numpy().flatten()
+
+
+def check_file_exists(filename):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT object_id FROM multimedia_objects WHERE location = %s;", (filename,))
+        result = cursor.fetchone()
+        return result[0] if result else None
+    finally:
+        cursor.close()
+        release_db_connection(conn)
 
 
 ###################### UPLOADING IMAGES ##############################
@@ -201,6 +213,11 @@ def process_frame(frame_info, object_id):
 async def process_videos(files: list[UploadFile] = File(...)):
     try:
         for file in files:
+            existing_object_id = check_file_exists(file.filename)
+            if existing_object_id:
+                print(f"Skipping {file.filename}: Already exists in the database.")
+                continue
+
             video_path = os.path.join(FRAME_STORAGE, file.filename)
             with open(video_path, "wb") as f:
                 f.write(file.file.read())
