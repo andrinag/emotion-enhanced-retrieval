@@ -18,6 +18,9 @@ from fastapi import FastAPI
 from fastapi import Request, Response
 from fastapi import Header
 from fastapi.templating import Jinja2Templates
+from fastapi import HTTPException, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -33,6 +36,8 @@ if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
 app = FastAPI()
+app.mount("/videos", StaticFiles(directory="videos"), name="videos")
+
 
 # connection to the local database
 conn = psycopg2.connect(
@@ -62,42 +67,36 @@ def get_embedding(input_text=None, input_image=None):
             features = model.encode_image(inputs)
             return features.numpy().flatten()
 
+
 ################## TEXT TO IMAGE SEARCH #########################
 @app.get("/search/{query}")
-async def search_images(query: str):
+async def search_images(request: Request, query: str):
     """
-    allows you to search for similar images via query (text) input
-    :param query: string
-    :return: returns the 3 closest images for the query
+    Search for videos related to the query and return the video path.
     """
     try:
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
-        # TODO: doesn't fully work, need to figure how to make it better
+
         cursor.execute("""
             SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
             FROM multimedia_embeddings me
             JOIN multimedia_objects mo ON me.object_id = mo.object_id
             ORDER BY distance ASC
-            LIMIT 3;
+            LIMIT 1;
         """, (query_embedding.tolist(),))
 
-        results = cursor.fetchall()
+        result = cursor.fetchone()
         cursor.close()
-        return {
-            "results": [
-                {
-                    "location": row[0],
-                    "frame_time": row[1] if row[1] is not None else None,
-                    "distance": row[2]
-                }
-                for row in results
-            ]
-        }
+
+        if result:
+            video_path = result[0]
+            return JSONResponse({"video_path": f"./videos/{video_path}", "frame_time": result[1], "distance": result[2]})
+        else:
+            return JSONResponse({"message": "No video found"}, status_code=404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/")
 async def read_root(request: Request):
@@ -105,19 +104,29 @@ async def read_root(request: Request):
 
 
 @app.get("/video")
-async def video_endpoint(range: str = Header(None)):
-    start, end = range.replace("bytes=", "").split("-")
-    start = int(start)
-    end = int(end) if end else start + CHUNK_SIZE
-    with open(video_path, "rb") as video:
-        video.seek(start)
-        data = video.read(end - start)
-        filesize = str(video_path.stat().st_size)
-        headers = {
-            'Content-Range': f'bytes {str(start)}-{str(end)}/{filesize}',
-            'Accept-Ranges': 'bytes'
-        }
-        return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+async def video_endpoint(path: str, range: str = Header(None)):
+    video_path = Path(path)
+
+    try:
+        start, end = range.replace("bytes=", "").split("-")
+        start = int(start)
+        end = int(end) if end else start + CHUNK_SIZE
+
+        with open(video_path, "rb") as video:
+            video.seek(start)
+            data = video.read(end - start)
+            filesize = str(video_path.stat().st_size)
+
+            headers = {
+                'Content-Range': f'bytes {start}-{start + len(data) - 1}/{filesize}',
+                'Accept-Ranges': 'bytes',
+                'Content-Length': str(len(data)),
+                'Content-Type': 'video/mp4'
+            }
+
+            return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="Video not found")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

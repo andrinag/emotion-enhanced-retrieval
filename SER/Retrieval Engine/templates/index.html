@@ -1,13 +1,42 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>FastAPI video streaming</title>
-    </head>
-    <body>
-        <video width="1200" controls muted>
-            <source src="/video" type="video/mp4" />
-            Your browser does not support the video tag.
-        </video>
+<head>
+    <title>FastAPI Video Search</title>
+</head>
+<body>
+    <h1>Video Search Engine 🎥</h1>
 
-    </body>
+    <!-- Search Bar -->
+    <input type="text" id="searchQuery" placeholder="Enter your search query" />
+    <button onclick="searchVideo()">Search</button>
+
+    <!-- Video Player -->
+    <video id="videoPlayer" width="800" controls style="display: none;">
+        <source id="videoSource" src="" type="video/mp4" />
+        Your browser does not support the video tag.
+    </video>
+
+    <script>
+        function searchVideo() {
+            const query = document.getElementById("searchQuery").value;
+
+            fetch(`/search/${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.video_path) {
+                        const videoPlayer = document.getElementById("videoPlayer");
+                        const videoSource = document.getElementById("videoSource");
+
+                        // Update the video source dynamically
+                        videoSource.src = `/video?path=${encodeURIComponent(data.video_path)}`;
+                        videoPlayer.load();
+                        videoPlayer.style.display = "block";  // Show the video player
+                    } else {
+                        alert("No video found for this query.");
+                    }
+                })
+                .catch(error => console.error("Error fetching video:", error));
+        }
+    </script>
+</body>
 </html>
