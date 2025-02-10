@@ -1,38 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FastAPI Video Search</title>
+    <title>Multimedia Retrieval Engine</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #videoContainer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .video-card {
+            width: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        video {
+            width: 100%;
+            height: auto;
+        }
+    </style>
 </head>
 <body>
-    <h1>Video Search Engine 🎥</h1>
-
-    <!-- Search Bar -->
+    <h1>Multimedia Retrieval Engine</h1>
     <input type="text" id="searchQuery" placeholder="Enter your search query" />
     <button onclick="searchVideo()">Search</button>
-
-    <!-- Video Player -->
-    <video id="videoPlayer" width="800" controls style="display: none;">
-        <source id="videoSource" src="" type="video/mp4" />
-        Your browser does not support the video tag.
-    </video>
+    <div id="videoContainer"></div>
 
     <script>
         function searchVideo() {
             const query = document.getElementById("searchQuery").value;
+            const videoContainer = document.getElementById("videoContainer");
+            videoContainer.innerHTML = "";
 
             fetch(`/search/${query}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.video_path) {
-                        const videoPlayer = document.getElementById("videoPlayer");
-                        const videoSource = document.getElementById("videoSource");
+                    if (Array.isArray(data) && data.length > 0) {
+                        data.forEach(video => {
+                            const videoCard = document.createElement("div");
+                            videoCard.className = "video-card";
 
-                        // Update the video source dynamically
-                        videoSource.src = `/video?path=${encodeURIComponent(data.video_path)}`;
-                        videoPlayer.load();
-                        videoPlayer.style.display = "block";  // Show the video player
+                            const videoPlayer = document.createElement("video");
+                            videoPlayer.controls = true;
+                            videoPlayer.src = `/video?path=${encodeURIComponent(video.video_path)}`;
+                            videoPlayer.load();
+
+                            const info = document.createElement("p");
+                            info.textContent = `Similarity: ${video.similarity.toFixed(2)}`;
+
+                            videoCard.appendChild(videoPlayer);
+                            videoCard.appendChild(info);
+                            videoContainer.appendChild(videoCard);
+                        });
                     } else {
-                        alert("No video found for this query.");
+                        alert("No videos found for this query.");
                     }
                 })
                 .catch(error => console.error("Error fetching video:", error));

@@ -30,7 +30,7 @@ model.eval()
 tokenizer = open_clip.get_tokenizer('ViT-B-32')
 templates = Jinja2Templates(directory="templates")
 CHUNK_SIZE = 1024*1024
-video_path = Path("./videos/seafood_1280p.mp4")
+# video_path = Path("./videos/seafood_1280p.mp4")
 
 FRAME_STORAGE = "./frames" # local storage for the video frames
 if not os.path.exists(FRAME_STORAGE):
@@ -38,6 +38,8 @@ if not os.path.exists(FRAME_STORAGE):
 
 app = FastAPI()
 app.mount("/media/V3C/V3C1/video-480p/", StaticFiles(directory="/media/V3C/V3C1/video-480p/"), name="videos")
+#locally
+# app.mount("/videos", StaticFiles(directory="./videos"), name="videos")
 
 
 # connection to the local database
@@ -90,22 +92,26 @@ async def search_images(request: Request, query: str):
         print(query_embedding[-10:])
 
         cursor.execute("""
-            SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
+            SELECT mo.location, me.frame_time, (1 - (me.embedding <#> %s::vector)) AS similarity
             FROM multimedia_embeddings me
             JOIN multimedia_objects mo ON me.object_id = mo.object_id
-            WHERE mo.type = 'video'
-            ORDER BY distance ASC
-            LIMIT 1;
-
+            ORDER BY similarity DESC
+            LIMIT 5;
         """, (query_embedding.tolist(),))
 
-        result = cursor.fetchone()
+        result = cursor.fetchall()
         cursor.close()
 
         if result:
-            video_path = result[0]
-            return JSONResponse({"video_path": f"/media/V3C/V3C1/video-480p/{video_path}", "frame_time": result[1],
-                                 "distance": result[2]})
+            response = [
+                {
+                    "video_path": f"/media/V3C/V3C1/video-480p/{row[0]}",
+                    "frame_time": row[1],
+                    "similarity": row[2]
+                }
+                for row in result
+            ]
+            return JSONResponse(response)
         else:
             return JSONResponse({"message": "No video found"}, status_code=404)
 
