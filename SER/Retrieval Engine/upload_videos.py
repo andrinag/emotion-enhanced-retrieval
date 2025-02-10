@@ -2,7 +2,7 @@ import os
 import requests
 
 """
-Simple script that lets you upload the caltect video dataset into a postgres (pgvector) database via engine
+Simple script that lets you upload images from given directory to database
 """
 
 
@@ -17,7 +17,8 @@ def get_video_list_from_folder(folder_path):
 
 if __name__ == "__main__":
     folder_path = "/media/V3C/V3C1/video-480p" # on node
-    folder_path = "./videos" # local
+    folder_path = "/media/V3C/V3C2/video-480p" # second folder
+    # folder_path = "./videos" # local
     video_list = get_video_list_from_folder(folder_path)
 
     url = "http://127.0.0.1:8000/upload_videos/"
