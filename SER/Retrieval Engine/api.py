@@ -21,6 +21,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi import HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
+import numpy as np
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -48,6 +49,13 @@ conn = psycopg2.connect(
     port="5432"
 )
 register_vector(conn)
+
+def normalize_embedding(embedding):
+    norm = np.linalg.norm(embedding)
+    if norm == 0:
+        return embedding
+    return embedding / norm
+
 
 def get_embedding(input_text=None, input_image=None):
     """
@@ -77,13 +85,18 @@ async def search_images(request: Request, query: str):
     try:
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
+        query_embedding = normalize_embedding(query_embedding)
+
+        print(query_embedding[-10:])
 
         cursor.execute("""
             SELECT mo.location, me.frame_time, me.embedding <-> %s::vector AS distance
             FROM multimedia_embeddings me
             JOIN multimedia_objects mo ON me.object_id = mo.object_id
+            WHERE mo.type = 'video'
             ORDER BY distance ASC
             LIMIT 1;
+
         """, (query_embedding.tolist(),))
 
         result = cursor.fetchone()
