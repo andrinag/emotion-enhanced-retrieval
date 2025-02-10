@@ -92,10 +92,16 @@ async def search_images(request: Request, query: str):
         print(query_embedding[-10:])
 
         cursor.execute("""
-            SELECT mo.location, me.frame_time, (1 - (me.embedding <#> %s::vector)) AS similarity
-            FROM multimedia_embeddings me
-            JOIN multimedia_objects mo ON me.object_id = mo.object_id
-            ORDER BY similarity DESC
+            SELECT mo.location, sub.frame_time, sub.similarity
+            FROM multimedia_objects mo
+            JOIN (
+                SELECT me.object_id, 
+                       MAX(me.frame_time) AS frame_time,
+                       MAX(1 - (me.embedding <#> %s::vector)) AS similarity
+                FROM multimedia_embeddings me
+                GROUP BY me.object_id
+            ) sub ON mo.object_id = sub.object_id
+            ORDER BY sub.similarity DESC
             LIMIT 5;
         """, (query_embedding.tolist(),))
 
