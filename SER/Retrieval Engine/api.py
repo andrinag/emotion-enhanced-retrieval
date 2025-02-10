@@ -128,12 +128,13 @@ async def search_images(request: Request, query: str):
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", context={"request": request})
 
-
 @app.get("/video")
 async def video_endpoint(path: str, range: str = Header(None)):
-    video_path = Path(path)
+    file_path = Path(path)
+    fallback_directory = "/media/V3C/V3C2/video-480p/"
+    fallback_path = Path(fallback_directory) / file_path.name
 
-    try:
+    def stream_video(video_path):
         start, end = range.replace("bytes=", "").split("-")
         start = int(start)
         end = int(end) if end else start + CHUNK_SIZE
@@ -151,8 +152,12 @@ async def video_endpoint(path: str, range: str = Header(None)):
             }
 
             return Response(data, status_code=206, headers=headers, media_type="video/mp4")
-    except Exception as e:
-        raise HTTPException(status_code=404, detail="Video not found")
+    if file_path.exists():
+        return stream_video(file_path)
+    if fallback_path.exists():
+        return stream_video(fallback_path)
+    raise HTTPException(status_code=404, detail="Video not found")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)
