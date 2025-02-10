@@ -1,15 +1,24 @@
 import os
 from http.client import HTTPException
+from fastapi import FastAPI, UploadFile, File
 import torch
 from PIL import Image
 import psycopg2
 import io
 from pgvector.psycopg2 import register_vector
 import uvicorn
+import cv2
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import open_clip
+from starlette.responses import StreamingResponse
 from pathlib import Path
-from fastapi import FastAPI, Request, Response, HTTPException, Header
+from fastapi import FastAPI
+from fastapi import Request, Response
+from fastapi import Header
+from fastapi.templating import Jinja2Templates
+from fastapi import HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import numpy as np
@@ -83,13 +92,10 @@ async def search_images(request: Request, query: str):
         print(query_embedding[-10:])
 
         cursor.execute("""
-            SELECT DISTINCT ON (mo.location) 
-                   mo.location, 
-                   me.frame_time, 
-                   (1 - (me.embedding <#> %s::vector)) AS similarity
+            SELECT mo.location, me.frame_time, (1 - (me.embedding <#> %s::vector)) AS similarity
             FROM multimedia_embeddings me
             JOIN multimedia_objects mo ON me.object_id = mo.object_id
-            ORDER BY mo.location, similarity DESC
+            ORDER BY similarity DESC
             LIMIT 5;
         """, (query_embedding.tolist(),))
 
