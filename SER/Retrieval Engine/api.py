@@ -36,7 +36,7 @@ if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
 app = FastAPI()
-app.mount("/videos", StaticFiles(directory="videos"), name="videos")
+app.mount("/media/V3C/V3C1/video-480p/", StaticFiles(directory="/media/V3C/V3C1/video-480p/"), name="videos")
 
 
 # connection to the local database
@@ -45,7 +45,7 @@ conn = psycopg2.connect(
     user="test",
     host="localhost",
     password="123",
-    port="5433"
+    port="5432"
 )
 register_vector(conn)
 
@@ -91,7 +91,8 @@ async def search_images(request: Request, query: str):
 
         if result:
             video_path = result[0]
-            return JSONResponse({"video_path": f"./videos/{video_path}", "frame_time": result[1], "distance": result[2]})
+            return JSONResponse({"video_path": f"/media/V3C/V3C1/video-480p/{video_path}", "frame_time": result[1],
+                                 "distance": result[2]})
         else:
             return JSONResponse({"message": "No video found"}, status_code=404)
 

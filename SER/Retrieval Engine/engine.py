@@ -17,7 +17,7 @@ from fastapi import UploadFile, File, HTTPException
 import os
 import traceback
 
-MAX_WORKERS = 4
+MAX_WORKERS = 16
 BATCH_SIZE = 50
 FRAME_STORAGE = "./frames"
 
@@ -134,7 +134,7 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
 ######################## UPLOADING VIDEO ################################
 
-def extract_frames(video_path, output_folder, seconds=1):
+def extract_frames(video_path, output_folder, seconds=6):
     """
     extracts frames from a video in given interval (here 1s)
     :param video_path: path to where the video file is stored
