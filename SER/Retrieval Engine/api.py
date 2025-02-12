@@ -7,17 +7,12 @@ import psycopg2
 import io
 from pgvector.psycopg2 import register_vector
 import uvicorn
-import cv2
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import open_clip
-from starlette.responses import StreamingResponse
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi import Request, Response
 from fastapi import Header
-from fastapi.templating import Jinja2Templates
 from fastapi import HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
@@ -30,7 +25,6 @@ model.eval()
 tokenizer = open_clip.get_tokenizer('ViT-B-32')
 templates = Jinja2Templates(directory="templates")
 CHUNK_SIZE = 1024*1024
-# video_path = Path("./videos/seafood_1280p.mp4")
 
 FRAME_STORAGE = "./frames" # local storage for the video frames
 if not os.path.exists(FRAME_STORAGE):
@@ -83,29 +77,29 @@ def get_embedding(input_text=None, input_image=None):
 async def search_images(request: Request, query: str):
     """
     Search for videos related to the query and return the video path.
+    TODO: make normalization of the result values for text to image
     """
     try:
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
         query_embedding = normalize_embedding(query_embedding)
-
         print(query_embedding[-10:])
 
+    # Important. Cosine comparison
         cursor.execute("""
-            SELECT mo.location, sub.frame_time, sub.similarity
-            FROM multimedia_objects mo
-            JOIN (
-                SELECT me.object_id, 
-                       MAX(me.frame_time) AS frame_time,
-                       MAX(1 - (me.embedding <#> %s::vector)) AS similarity
-                FROM multimedia_embeddings me
-                GROUP BY me.object_id
-            ) sub ON mo.object_id = sub.object_id
-            ORDER BY sub.similarity DESC
-            LIMIT 5;
+        SELECT 
+            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+            me.frame_time,
+            1 - (me.embedding <=> %s::vector) AS similarity
+        FROM multimedia_embeddings me
+        ORDER BY similarity DESC
+        LIMIT 5; 
         """, (query_embedding.tolist(),))
 
         result = cursor.fetchall()
+        for row in result:
+            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+
         cursor.close()
 
         if result:
@@ -132,6 +126,7 @@ async def read_root(request: Request):
 async def video_endpoint(path: str, range: str = Header(None)):
     file_path = Path(path)
     fallback_directory = "/media/V3C/V3C2/video-480p/"
+    # fallback_directory = "./videos"
     fallback_path = Path(fallback_directory) / file_path.name
 
     def stream_video(video_path):
@@ -157,6 +152,38 @@ async def video_endpoint(path: str, range: str = Header(None)):
     if fallback_path.exists():
         return stream_video(fallback_path)
     raise HTTPException(status_code=404, detail="Video not found")
+
+
+@app.post("/search_image_to_image/")
+async def search_image_to_image(file: UploadFile = File(...)):
+    cursor = conn.cursor()
+    try:
+        file_content = file.file.read()
+        file.file.seek(0)
+        embedding = get_embedding(input_image=file_content)
+        embedding = normalize_embedding(embedding)
+        # Important. Cosine comparison
+        cursor.execute("""
+            SELECT 
+                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                me.frame_time,
+                1 - (me.embedding <=> %s::vector) AS similarity
+            FROM multimedia_embeddings me
+            ORDER BY similarity DESC
+            LIMIT 5; 
+            """, (embedding.tolist(),))
+
+        result = cursor.fetchall()
+        for row in result:
+            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
 
 
 if __name__ == "__main__":

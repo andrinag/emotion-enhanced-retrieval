@@ -17,7 +17,7 @@ def get_file_list():
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
 
-        if filename.lower().endswith((".jpg")):
+        if filename.lower().endswith((".png")):
             files.append(("files", (filename, open(file_path, "rb"), "image/jpeg")))
 
     return files

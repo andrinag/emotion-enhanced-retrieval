@@ -1,21 +1,17 @@
-import os
-from fastapi import HTTPException
 from fastapi import FastAPI, UploadFile, File
 import torch
 from PIL import Image
 import psycopg2
 import io
-from pgvector.psycopg2 import register_vector
 import uvicorn
 import cv2
 import open_clip
-from concurrent.futures import ThreadPoolExecutor
-import traceback
 
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import UploadFile, File, HTTPException
 import os
 import traceback
+import numpy as np
 
 MAX_WORKERS = 16
 BATCH_SIZE = 50
@@ -70,6 +66,13 @@ def get_embedding(input_text=None, input_image=None):
             return features.numpy().flatten()
 
 
+def normalize_embedding(embedding):
+    norm = np.linalg.norm(embedding)
+    if norm == 0:
+        return embedding
+    return embedding / norm
+
+
 def check_file_exists(filename):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -113,6 +116,7 @@ async def upload_files(files: list[UploadFile] = File(...)):
             file_content = file.file.read()
             file.file.seek(0)
             embedding = get_embedding(input_image=file_content)
+            embedding = normalize_embedding(embedding)
 
             # first insert the image and its meatdata (file, id etc.)
             object_id = insert_image_metadata(file.filename)
@@ -195,7 +199,8 @@ def process_frame(frame_info, object_id):
         image = Image.open(frame_path).convert("RGB")
         img_byte_arr = io.BytesIO()
         image.save(img_byte_arr, format="PNG")
-        embedding = get_embedding(input_image=img_byte_arr.getvalue())
+        embedding = get_embedding(input_image=img_byte_arr.getvalue()) # calls the methods that uses CLIP
+        embedding = normalize_embedding(embedding)
 
         cursor.execute(
             "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
@@ -224,6 +229,8 @@ async def process_videos(files: list[UploadFile] = File(...)):
 
             conn = get_db_connection()
             cursor = conn.cursor()
+
+            # Todo change this to the metadata method
             cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
                            ("video", file.filename))
             object_id = cursor.fetchone()[0]
