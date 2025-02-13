@@ -1,6 +1,6 @@
 import os
 from http.client import HTTPException
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Response, Header, Request, HTTPException
 import torch
 from PIL import Image
 import psycopg2
@@ -10,10 +10,6 @@ import uvicorn
 from fastapi.staticfiles import StaticFiles
 import open_clip
 from pathlib import Path
-from fastapi import FastAPI
-from fastapi import Request, Response
-from fastapi import Header
-from fastapi import HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import numpy as np
@@ -23,10 +19,12 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
 model.eval()
 tokenizer = open_clip.get_tokenizer('ViT-B-32')
+
 templates = Jinja2Templates(directory="templates")
 CHUNK_SIZE = 1024*1024
 
-FRAME_STORAGE = "./frames" # local storage for the video frames
+# local storage for the video frames (images)
+FRAME_STORAGE = "./frames"
 if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
@@ -47,6 +45,9 @@ conn = psycopg2.connect(
 register_vector(conn)
 
 def normalize_embedding(embedding):
+    """
+    Brings the embeddings into a normalized form
+    """
     norm = np.linalg.norm(embedding)
     if norm == 0:
         return embedding
@@ -72,6 +73,40 @@ def get_embedding(input_text=None, input_image=None):
             return features.numpy().flatten()
 
 
+################## IMAGE TO IMAGE SEARCH #################################################
+@app.post("/search_image_to_image/")
+async def search_image_to_image(file: UploadFile = File(...)):
+    """
+    Allows you to search the closest image in the database compared to a given image
+    """
+    cursor = conn.cursor()
+    try:
+        file_content = file.file.read()
+        file.file.seek(0)
+        embedding = get_embedding(input_image=file_content)
+        embedding = normalize_embedding(embedding)
+        # Important. Cosine comparison
+        cursor.execute("""
+            SELECT 
+                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                me.frame_time,
+                1 - (me.embedding <=> %s::vector) AS similarity
+            FROM multimedia_embeddings me
+            ORDER BY similarity DESC
+            LIMIT 5; 
+            """, (embedding.tolist(),))
+
+        result = cursor.fetchall()
+        for row in result:
+            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
 ################## TEXT TO IMAGE SEARCH #########################
 @app.get("/search/{query}")
 async def search_images(request: Request, query: str):
@@ -85,7 +120,7 @@ async def search_images(request: Request, query: str):
         query_embedding = normalize_embedding(query_embedding)
         print(query_embedding[-10:])
 
-    # Important. Cosine comparison
+    # Cosine comparison for the similarity
         cursor.execute("""
         SELECT 
             (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
@@ -124,6 +159,10 @@ async def read_root(request: Request):
 
 @app.get("/video")
 async def video_endpoint(path: str, range: str = Header(None)):
+    """
+    Allows a webbrowser to play the video which is stored locally
+    the fallback directory is the path to the V3C2 directory, because I made a mistake in my DB schema
+    """
     file_path = Path(path)
     fallback_directory = "/media/V3C/V3C2/video-480p/"
     # fallback_directory = "./videos"
@@ -152,38 +191,6 @@ async def video_endpoint(path: str, range: str = Header(None)):
     if fallback_path.exists():
         return stream_video(fallback_path)
     raise HTTPException(status_code=404, detail="Video not found")
-
-
-@app.post("/search_image_to_image/")
-async def search_image_to_image(file: UploadFile = File(...)):
-    cursor = conn.cursor()
-    try:
-        file_content = file.file.read()
-        file.file.seek(0)
-        embedding = get_embedding(input_image=file_content)
-        embedding = normalize_embedding(embedding)
-        # Important. Cosine comparison
-        cursor.execute("""
-            SELECT 
-                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-                me.frame_time,
-                1 - (me.embedding <=> %s::vector) AS similarity
-            FROM multimedia_embeddings me
-            ORDER BY similarity DESC
-            LIMIT 5; 
-            """, (embedding.tolist(),))
-
-        result = cursor.fetchall()
-        for row in result:
-            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
-
-        return result
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        cursor.close()
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import requests
 
 
 """
-Simple script that lets you upload the caltec pictures dataset into a postgres (pgvector) database
+test script for text to image search 
 """
 
 query = ("Schmetterling")

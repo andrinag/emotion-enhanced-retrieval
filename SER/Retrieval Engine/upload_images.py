@@ -1,7 +1,7 @@
 import os
 import requests
 """
-Simple script that lets you upload the caltec pictures dataset into a postgres (pgvector) database
+script for uploading all the images from a certain folder 
 """
 
 url = "http://127.0.0.1:8000/upload_image/"

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 import torch
 from PIL import Image
 import psycopg2
@@ -6,7 +6,6 @@ import io
 import uvicorn
 import cv2
 import open_clip
-
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import UploadFile, File, HTTPException
 import os
@@ -23,7 +22,8 @@ model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrai
 model.eval()
 tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
-FRAME_STORAGE = "./frames" # local storage for the video frames
+#  local storage of the video frames
+FRAME_STORAGE = "./frames"
 if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
@@ -40,10 +40,18 @@ db_pool = psycopg2.pool.SimpleConnectionPool(
     port="5432"
 )
 
+
 def get_db_connection():
+    """
+    returns multiple DB connections
+    """
     return db_pool.getconn()
 
+
 def release_db_connection(conn):
+    """
+    closes multiple db connections
+    """
     db_pool.putconn(conn)
 
 
@@ -67,6 +75,9 @@ def get_embedding(input_text=None, input_image=None):
 
 
 def normalize_embedding(embedding):
+    """
+    normalizes the embedding
+    """
     norm = np.linalg.norm(embedding)
     if norm == 0:
         return embedding
@@ -74,6 +85,9 @@ def normalize_embedding(embedding):
 
 
 def check_file_exists(filename):
+    """
+    checks if a file with the same name already exists in the database
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -191,7 +205,9 @@ def insert_video_metadata(video_filename):
 
 
 def process_frame(frame_info, object_id):
-    """Processes a single frame to generate an embedding."""
+    """
+    processes a single video frame and calls the embedding calculation method
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -216,6 +232,10 @@ def process_frame(frame_info, object_id):
 
 @app.post("/upload_videos/")
 async def process_videos(files: list[UploadFile] = File(...)):
+    """
+    takes a list of videos and calls the corresponding methods to extract the frames, calculate the embedding and
+    insert into the DB
+    """
     try:
         for file in files:
             existing_object_id = check_file_exists(file.filename)
