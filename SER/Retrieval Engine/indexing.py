@@ -11,7 +11,7 @@ conn = psycopg2.connect(
     user="test",
     host="localhost",
     password="123",
-    port="5433"
+    port="5432"
 )
 register_vector(conn)
 
