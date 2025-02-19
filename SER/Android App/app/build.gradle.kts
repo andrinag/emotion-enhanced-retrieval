@@ -64,5 +64,6 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle.v130)
     implementation(libs.androidx.camera.view.v130)
+    implementation("com.android.volley:volley:1.2.1")
 
 }
