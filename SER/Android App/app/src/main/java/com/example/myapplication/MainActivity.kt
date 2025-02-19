@@ -21,6 +21,7 @@ import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.YuvImage
 import android.util.Base64
+import android.widget.TextView
 import androidx.camera.core.ImageProxy
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -66,6 +67,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var lastSentTime = 0L // Store last time an image was sent
 
     private fun startCameraStream() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -79,20 +81,30 @@ class MainActivity : AppCompatActivity() {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-            // front camera selection
+            // Front camera selection
             val cameraSelector = CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                 .build()
 
-            // TODO make image sending only every two seconds
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also { analyzer ->
                     analyzer.setAnalyzer(cameraExecutor) { image ->
-                        Log.d("CameraStream", "Frame received: ${image.format}, ${image.width}x${image.height}")
-                        val bitmap = imageProxyToBitmap(image)
-                        sendPostRequest(this, bitmap)
+                        val currentTime = System.currentTimeMillis()
+
+                        // Only send image if 2 seconds (2000 ms) have passed since last send
+                        if (currentTime - lastSentTime >= 2000) {
+                            Log.d("CameraStream", "Sending image...")
+
+                            val bitmap = imageProxyToBitmap(image)
+                            var response = sendPostRequest(this, bitmap)
+
+                            lastSentTime = currentTime // Update last sent time
+                        } else {
+                            Log.d("CameraStream", "Skipping frame to avoid excessive requests")
+                        }
+
                         image.close()
                     }
                 }
@@ -107,6 +119,7 @@ class MainActivity : AppCompatActivity() {
 
         }, ContextCompat.getMainExecutor(this))
     }
+
 
     override fun onDestroy() {
         super.onDestroy()
@@ -152,6 +165,20 @@ class MainActivity : AppCompatActivity() {
         val stringRequest = object : StringRequest(Method.POST, url,
             Response.Listener { response ->
                 Log.i("VOLLEY", "Success! Response: $response")
+
+                try {
+                    val jsonResponse = JSONObject(response)
+                    val sentiment = jsonResponse.optString("sentiment", "Unknown")
+                    val emotion = jsonResponse.optString("emotion", "Unknown")
+
+                    runOnUiThread {
+                        findViewById<TextView>(R.id.text).text = "Sentiment: $sentiment\nEmotion: $emotion"
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
+                }
+
             },
             Response.ErrorListener { error ->
                 Log.e("VOLLEY", "Error: ${error.message}")
@@ -160,6 +187,10 @@ class MainActivity : AppCompatActivity() {
                     val responseData = error.networkResponse.data?.let { String(it) } ?: "No response body"
                     Log.e("VOLLEY", "HTTP Status Code: $statusCode")
                     Log.e("VOLLEY", "Response Data: $responseData")
+                }
+
+                runOnUiThread {
+                    findViewById<TextView>(R.id.text).text = "Error: Could not get response"
                 }
             }) {
 
@@ -179,4 +210,5 @@ class MainActivity : AppCompatActivity() {
 
         requestQueue.add(stringRequest)
     }
+
 }

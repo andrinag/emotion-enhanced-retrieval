@@ -17,7 +17,8 @@ model = AutoModelForImageClassification.from_pretrained("dima806/facial_emotions
 
 class ImageRequest(BaseModel):
     image: str  # Base64 encoded image
-@app.post("/sentiment_for_image/{image_path}")
+
+
 async def get_sentiment_for_image(image_path: str):
     predictions = pipe(image_path)
     top_emotion = predictions[0]["label"]
@@ -38,7 +39,7 @@ async def get_sentiment_for_image(image_path: str):
     print(f"Predicted Emotion: {top_emotion} ({confidence:.2f})")
     print(f"Mapped Sentiment: {sentiment}")
 
-    return sentiment
+    return top_emotion, sentiment
 
 
 @app.api_route("/test", methods=["GET", "POST"])
@@ -51,8 +52,9 @@ async def upload_base64_image(data: ImageRequest):
         image_data = base64.b64decode(data.image)
         image = Image.open(io.BytesIO(image_data))
         image.save("output_image.png", "PNG")
+        top_emotion, sentiment = await get_sentiment_for_image("output_image.png")
 
-        return {"message": "Image converted and saved successfully!"}
+        return {"sentiment": sentiment, "emotion": top_emotion}
     except Exception as e:
         return {"error": str(e)}
 
