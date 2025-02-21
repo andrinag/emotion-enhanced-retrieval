@@ -28,8 +28,8 @@ FRAME_STORAGE = "./frames"
 if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
-mastershot_dir_1 = "./V3C1_msb/msb"
-mastershot_dir_2 = "./V3C2_msb/msb"
+mastershot_dir_1 = "/home/ubuntu/V3C1_msb/msb"
+mastershot_dir_2 = "/home/ubuntu/V3C2_msb/msb"
 
 app = FastAPI()
 # connection to the local database
