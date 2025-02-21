@@ -1,5 +1,6 @@
 import os
 from http.client import HTTPException
+import cv2
 from fastapi import FastAPI, UploadFile, File, Response, Header, Request, HTTPException
 import torch
 from PIL import Image
@@ -146,6 +147,7 @@ async def search_images(request: Request, query: str):
                 }
                 for row in result
             ]
+            print(response)
             return JSONResponse(response)
         else:
             return JSONResponse({"message": "No video found"}, status_code=404)
@@ -158,20 +160,40 @@ async def read_root(request: Request):
     return templates.TemplateResponse("index.html", context={"request": request})
 
 @app.get("/video")
-async def video_endpoint(path: str, range: str = Header(None)):
+async def video_endpoint(path: str, start_time: float = 0.0, range: str = Header(None)):
     """
     Allows a webbrowser to play the video which is stored locally
     the fallback directory is the path to the V3C2 directory, because I made a mistake in my DB schema
     """
     file_path = Path(path)
-    fallback_directory = "/media/V3C/V3C2/video-480p/"
-    # fallback_directory = "./videos"
+    fallback_directory = "./videos"
     fallback_path = Path(fallback_directory) / file_path.name
 
-    def stream_video(video_path):
-        start, end = range.replace("bytes=", "").split("-")
-        start = int(start)
-        end = int(end) if end else start + CHUNK_SIZE
+    def get_byte_offset(video_path, start_time):
+        cap = cv2.VideoCapture(str(video_path))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+
+        if fps <= 0:
+            raise HTTPException(status_code=500, detail="Failed to retrieve video FPS")
+
+        start_frame = int(start_time * fps)
+        file_size = video_path.stat().st_size
+        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        avg_bytes_per_frame = file_size / total_frames if total_frames > 0 else CHUNK_SIZE
+
+        return int(start_frame * avg_bytes_per_frame)
+
+    def stream_video(video_path, start_time):
+        byte_offset = get_byte_offset(video_path, start_time)
+
+        if range:
+            start, end = range.replace("bytes=", "").split("-")
+            start = int(start)
+            end = int(end) if end else start + CHUNK_SIZE
+        else:
+            start = byte_offset
+            end = start + CHUNK_SIZE
 
         with open(video_path, "rb") as video:
             video.seek(start)
@@ -187,9 +209,10 @@ async def video_endpoint(path: str, range: str = Header(None)):
 
             return Response(data, status_code=206, headers=headers, media_type="video/mp4")
     if file_path.exists():
-        return stream_video(file_path)
+        return stream_video(file_path, start_time)
     if fallback_path.exists():
-        return stream_video(fallback_path)
+        return stream_video(fallback_path, start_time)
+
     raise HTTPException(status_code=404, detail="Video not found")
 
 

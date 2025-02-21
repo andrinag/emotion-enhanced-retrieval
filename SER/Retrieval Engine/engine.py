@@ -11,6 +11,7 @@ from fastapi import UploadFile, File, HTTPException
 import os
 import traceback
 import numpy as np
+import pandas as pd
 
 MAX_WORKERS = 16
 BATCH_SIZE = 50
@@ -26,6 +27,9 @@ tokenizer = open_clip.get_tokenizer('ViT-B-32')
 FRAME_STORAGE = "./frames"
 if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
+
+mastershot_dir_1 = "./V3C1_msb/msb"
+mastershot_dir_2 = "./V3C2_msb/msb"
 
 app = FastAPI()
 # connection to the local database
@@ -152,35 +156,45 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
 ######################## UPLOADING VIDEO ################################
 
-def extract_frames(video_path, output_folder, seconds=6):
+def extract_frames(video_path, output_folder, msb_file):
     """
-    extracts frames from a video in given interval (here 1s)
-    :param video_path: path to where the video file is stored
-    :param output_folder: path to where frames should be stored
-    :param seconds: in what interval frames should be taken
-    :return:
+    extract frame per mastershot boundary. takes the middle part.
     """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
+    try:
+        boundaries = pd.read_csv(msb_file, sep="\t")  # in tsv files \t is the seperator
+    except Exception as e:
+        print(f"Error reading boundary file {msb_file}: {e}")
+        return []
+
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_interval = int(fps * seconds) if fps > 0 else 1
 
-    frame_count = 0
+    if fps <= 0:
+        print(f"Error: FPS is zero for:  {video_path}")
+        return []
+
     frame_paths = []
 
-    while True:
+    for index, row in boundaries.iterrows():
+        start_frame = int(row['startframe'])
+        end_frame = int(row['endframe'])
+        start_time = row['starttime']
+        end_time = row['endtime']
+
+        # because we take the middle point of the segment of the msb
+        middle_frame = (start_frame + end_frame) // 2
+        middle_time = (start_time + end_time) / 2
+        cap.set(cv2.CAP_PROP_POS_FRAMES, middle_frame) # sets it to the middle point
         success, image = cap.read()
         if not success:
-            break
-
-        if frame_count % frame_interval == 0:
-            frame_filename = os.path.join(output_folder, f"frame_{frame_count}.jpg")
-            cv2.imwrite(frame_filename, image)
-            frame_paths.append((frame_filename, frame_count // frame_interval))
-
-        frame_count += 1
+            print(f"Warning: Could not extract frame {middle_frame} from {video_path}")
+            continue
+        frame_filename = os.path.join(output_folder, f"{os.path.basename(video_path)}_frame_{middle_frame}.jpg")
+        cv2.imwrite(frame_filename, image)
+        frame_paths.append((frame_filename, middle_time))
 
     cap.release()
     return frame_paths
@@ -201,7 +215,6 @@ def insert_video_metadata(video_filename):
         return object_id
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 def process_frame(frame_info, object_id):
@@ -243,13 +256,12 @@ async def process_videos(files: list[UploadFile] = File(...)):
                 print(f"Skipping {file.filename}: Already exists in the database.")
                 continue
 
-            video_path = os.path.join(FRAME_STORAGE, file.filename)
+            video_filename = file.filename
+            video_path = os.path.join(FRAME_STORAGE, video_filename)
             with open(video_path, "wb") as f:
                 f.write(file.file.read())
-
             conn = get_db_connection()
             cursor = conn.cursor()
-
             # Todo change this to the metadata method
             cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
                            ("video", file.filename))
@@ -258,8 +270,12 @@ async def process_videos(files: list[UploadFile] = File(...)):
             cursor.close()
             release_db_connection(conn)
 
-            frame_data = extract_frames(video_path, FRAME_STORAGE)
+            boundary_file = os.path.splitext(mastershot_dir_1)[0] + "/" + video_filename.split(".")[0] + ".tsv"
+            if not os.path.exists(boundary_file):
+                print(f"Skipping {video_filename}: No boundary file found ({boundary_file})")
+                continue
 
+            frame_data = extract_frames(video_path, FRAME_STORAGE, boundary_file)
             with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 executor.map(lambda f: process_frame(f, object_id), frame_data)
 

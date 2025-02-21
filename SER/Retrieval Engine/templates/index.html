@@ -32,37 +32,43 @@
     <div id="videoContainer"></div>
 
     <script>
-        function searchVideo() {
-            const query = document.getElementById("searchQuery").value;
-            const videoContainer = document.getElementById("videoContainer");
-            videoContainer.innerHTML = "";
+    function searchVideo() {
+        const query = document.getElementById("searchQuery").value;
+        const videoContainer = document.getElementById("videoContainer");
+        videoContainer.innerHTML = "";
 
-            fetch(`/search/${query}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (Array.isArray(data) && data.length > 0) {
-                        data.forEach(video => {
-                            const videoCard = document.createElement("div");
-                            videoCard.className = "video-card";
+        fetch(`/search/${query}`)
+            .then(response => response.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    data.forEach(video => {
+                        const videoCard = document.createElement("div");
+                        videoCard.className = "video-card";
 
-                            const videoPlayer = document.createElement("video");
-                            videoPlayer.controls = true;
-                            videoPlayer.src = `/video?path=${encodeURIComponent(video.video_path)}`;
-                            videoPlayer.load();
+                        const videoPlayer = document.createElement("video");
+                        videoPlayer.controls = true;
+                        videoPlayer.src = `/video?path=${encodeURIComponent(video.video_path)}&start_time=${video.frame_time}`;
+                        videoPlayer.load();
 
-                            const info = document.createElement("p");
-                            info.textContent = `Similarity: ${video.similarity}`;
-
-                            videoCard.appendChild(videoPlayer);
-                            videoCard.appendChild(info);
-                            videoContainer.appendChild(videoCard);
+                        // Seek to the exact time when metadata is loaded
+                        videoPlayer.addEventListener("loadedmetadata", function () {
+                            videoPlayer.currentTime = video.frame_time;
                         });
-                    } else {
-                        alert("No videos found for this query.");
-                    }
-                })
-                .catch(error => console.error("Error fetching video:", error));
-        }
-    </script>
+
+                        const info = document.createElement("p");
+                        info.textContent = `Similarity: ${video.similarity}, Start Time: ${video.frame_time} sec`;
+
+                        videoCard.appendChild(videoPlayer);
+                        videoCard.appendChild(info);
+                        videoContainer.appendChild(videoCard);
+                    });
+                } else {
+                    alert("No videos found for this query.");
+                }
+            })
+            .catch(error => console.error("Error fetching video:", error));
+    }
+</script>
+
 </body>
 </html>
