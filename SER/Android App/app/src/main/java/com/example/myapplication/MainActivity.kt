@@ -35,6 +35,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
 
+    /**
+     * starts the camera when the app is opened
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -51,6 +54,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * checks if all the permission are granted
+     */
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
@@ -67,8 +73,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var lastSentTime = 0L // Store last time an image was sent
+    private var lastSentTime = 0L // stores the last time image was sent
 
+    /**
+     * starts the camera stream, sends image every 2s to the api
+     */
     private fun startCameraStream() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
@@ -80,8 +89,6 @@ class MainActivity : AppCompatActivity() {
                 .also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
-
-            // Front camera selection
             val cameraSelector = CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                 .build()
@@ -93,14 +100,13 @@ class MainActivity : AppCompatActivity() {
                     analyzer.setAnalyzer(cameraExecutor) { image ->
                         val currentTime = System.currentTimeMillis()
 
-                        // Only send image if 2 seconds (2000 ms) have passed since last send
                         if (currentTime - lastSentTime >= 2000) {
                             Log.d("CameraStream", "Sending image...")
 
-                            val bitmap = imageProxyToBitmap(image)
+                            // val bitmap = imageProxyToBitmap(image)
+                            val bitmap = imageProxyToBase64(image)
                             var response = sendPostRequest(this, bitmap)
-
-                            lastSentTime = currentTime // Update last sent time
+                            lastSentTime = currentTime
                         } else {
                             Log.d("CameraStream", "Skipping frame to avoid excessive requests")
                         }
@@ -121,6 +127,9 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    /**
+     * shuts down the camera when app is closed
+     */
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
@@ -130,9 +139,14 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 10
     }
 
-    fun imageProxyToBitmap(image: ImageProxy): Bitmap {
+
+    /**
+     * converts the image proxy to base64 representation such that it can be sent to sentiment api
+     */
+    fun imageProxyToBase64(image: ImageProxy): String {
+        // conversion to bitmap
         val imagePlanes = image.planes
-        val buffer = imagePlanes[0].buffer // Y plane
+        val buffer = imagePlanes[0].buffer
         val bytes = ByteArray(buffer.remaining())
         buffer.get(bytes)
 
@@ -141,10 +155,8 @@ class MainActivity : AppCompatActivity() {
         yuvImage.compressToJpeg(android.graphics.Rect(0, 0, image.width, image.height), 100, out)
         val jpegBytes = out.toByteArray()
 
-        return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
-    }
-
-    fun bitmapToBase64(bitmap: Bitmap): String {
+        // conversion to base64
+        val bitmap =  BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
         val byteArrayOutputStream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
         val byteArray = byteArrayOutputStream.toByteArray()
@@ -152,12 +164,14 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    fun sendPostRequest(context: android.content.Context, bitmap: Bitmap) {
-        val url = "http://192.168.103.178:8003/upload_base64" // Replace with your API URL
-        val base64Image = bitmapToBase64(bitmap)
-
+    /**
+     * sends post request (with VOLLEY) to the sentiment api
+     */
+    fun sendPostRequest(context: android.content.Context, base64Image: String) {
+        // TODO needs to be changed to the node adress
+        val url = "http://192.168.103.178:8003/upload_base64" // adress of the sentiment api
         val jsonBody = JSONObject()
-        jsonBody.put("image", base64Image) // Make sure this matches FastAPI
+        jsonBody.put("image", base64Image)
         val requestBody = jsonBody.toString()
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
