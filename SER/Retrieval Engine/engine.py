@@ -233,7 +233,7 @@ def process_frame(frame_info, object_id):
 
         cursor.execute(
             "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
-            (object_id, frame_time, embedding.tolist())
+            (object_id, float(frame_time), embedding.tolist())
         )
         conn.commit()
     except Exception as e:
