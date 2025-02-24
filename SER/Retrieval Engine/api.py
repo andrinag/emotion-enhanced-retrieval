@@ -166,7 +166,8 @@ async def video_endpoint(path: str, start_time: float = 0.0, range: str = Header
     the fallback directory is the path to the V3C2 directory, because I made a mistake in my DB schema
     """
     file_path = Path(path)
-    fallback_directory = "./videos"
+    #fallback_directory = "./videos"
+    fallback_directory = "/media/V3C/V3C2/video-480p/"
     fallback_path = Path(fallback_directory) / file_path.name
 
     def get_byte_offset(video_path, start_time):
