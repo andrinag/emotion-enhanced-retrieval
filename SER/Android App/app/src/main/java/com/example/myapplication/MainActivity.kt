@@ -27,6 +27,7 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
+import org.json.JSONArray
 
 
 class MainActivity : AppCompatActivity() {
@@ -44,6 +45,8 @@ class MainActivity : AppCompatActivity() {
 
         previewView = findViewById(R.id.previewView)
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        sendQueryRequest(this, "cat")
 
         if (allPermissionsGranted()) {
             startCameraStream()
@@ -107,10 +110,7 @@ class MainActivity : AppCompatActivity() {
                             val bitmap = imageProxyToBase64(image)
                             var response = sendPostRequest(this, bitmap)
                             lastSentTime = currentTime
-                        } else {
-                            Log.d("CameraStream", "Skipping frame to avoid excessive requests")
                         }
-
                         image.close()
                     }
                 }
@@ -163,6 +163,23 @@ class MainActivity : AppCompatActivity() {
         return Base64.encodeToString(byteArray, Base64.DEFAULT)
     }
 
+    fun sendQueryRequest(context: android.content.Context, query: String) {
+        val url = "http://10.34.64.139:8001/search/$query"
+
+        val requestQueue: RequestQueue = Volley.newRequestQueue(context)
+
+        val stringRequest = StringRequest(
+            Request.Method.GET, url,
+            { response ->
+                Log.i("VOLLEY", "Success! Response: $response")
+                val jsonArray = JSONArray(response)
+            },
+            { error ->
+                Log.e("VOLLEY", "Error: ${error.message}")
+            })
+
+        requestQueue.add(stringRequest)
+    }
 
     /**
      * sends post request (with VOLLEY) to the sentiment api
