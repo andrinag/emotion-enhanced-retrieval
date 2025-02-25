@@ -28,7 +28,7 @@ async def create_index_hnsw():
             CREATE INDEX IF NOT EXISTS idx_embedding_hnsw 
             ON multimedia_embeddings 
             USING hnsw (embedding vector_l2_ops) 
-            WITH (m = 10, ef_construction = 40);
+            WITH (m = 16, ef_construction = 64);
         """)
 
         conn.commit()

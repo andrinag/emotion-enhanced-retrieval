@@ -5,21 +5,17 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <!-- TextView to display text -->
-    <TextView
-        android:id="@+id/text"
+    <Button
+        android:id="@+id/startSentimentButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Your Text Here"
-        android:textSize="18sp"
-        android:textColor="@android:color/black"
-        android:gravity="center"
-        android:layout_marginBottom="10dp"/>
+        android:text="Start Sentiment Analysis" />
 
-    <!-- Camera Preview -->
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <Button
+        android:id="@+id/startVideosButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Start Video Retrieval" />
+
 
 </LinearLayout>
