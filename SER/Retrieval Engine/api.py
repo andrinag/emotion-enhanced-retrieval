@@ -109,51 +109,107 @@ async def search_image_to_image(file: UploadFile = File(...)):
     finally:
         cursor.close()
 ################## TEXT TO IMAGE SEARCH #########################
-@app.get("/search/{query}")
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+
+@app.api_route("/search/{query}", methods=["GET", "POST"])
 async def search_images(request: Request, query: str):
     """
-    Search for videos related to the query and return the video path.
-    TODO: make normalization of the result values for text to image
+    Search for videos related to the query.
+    This endpoint now supports both GET and POST requests.
     """
-    try:
-        cursor = conn.cursor()
-        query_embedding = get_embedding(input_text=query)
-        query_embedding = normalize_embedding(query_embedding)
-        print(query_embedding[-10:])
+    if request.method == "POST":
+        body = await request.json()
+        query = body.get("query", query)  # Fallback to URL param if body is missing
 
-    # Cosine comparison for the similarity
-        cursor.execute("""
-        SELECT 
-            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-            me.frame_time,
-            1 - (me.embedding <=> %s::vector) AS similarity
-        FROM multimedia_embeddings me
-        ORDER BY similarity DESC
-        LIMIT 5; 
-        """, (query_embedding.tolist(),))
+        print(f"Received Query: {query}")
+        try:
+            cursor = conn.cursor()
+            query_embedding = get_embedding(input_text=query)
+            query_embedding = normalize_embedding(query_embedding)
+            print(query_embedding[-10:])
 
-        result = cursor.fetchall()
-        for row in result:
-            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+            # Cosine comparison for the similarity
+            cursor.execute("""
+               SELECT 
+                   (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                   me.frame_time,
+                   1 - (me.embedding <=> %s::vector) AS similarity
+               FROM multimedia_embeddings me
+               ORDER BY similarity DESC
+               LIMIT 5; 
+               """, (query_embedding.tolist(),))
 
-        cursor.close()
+            result = cursor.fetchall()
+            for row in result:
+                print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
 
-        if result:
-            response = [
-                {
-                    "video_path": f"/media/V3C/V3C1/video-480p/{row[0]}",
-                    "frame_time": row[1],
-                    "similarity": row[2]
-                }
-                for row in result
-            ]
-            print(response)
-            return JSONResponse(response)
-        else:
-            return JSONResponse({"message": "No video found"}, status_code=404)
+            cursor.close()
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            if result:
+                response = [
+                    {
+                        "video_path": f"/media/V3C/V3C1/video-480p/{row[0]}",
+                        "frame_time": row[1],
+                        "similarity": row[2]
+                    }
+                    for row in result
+                ]
+                print(response)
+                return JSONResponse(content=response, media_type="application/json")
+            else:
+                return JSONResponse({"message": "No video found"}, status_code=404)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    if request.method == "GET":
+        """
+            Search for videos related to the query and return the video path.
+            TODO: make normalization of the result values for text to image
+            """
+        try:
+            cursor = conn.cursor()
+            query_embedding = get_embedding(input_text=query)
+            query_embedding = normalize_embedding(query_embedding)
+            print(query_embedding[-10:])
+
+            # Cosine comparison for the similarity
+            cursor.execute("""
+                SELECT 
+                    (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity
+                FROM multimedia_embeddings me
+                ORDER BY similarity DESC
+                LIMIT 5; 
+                """, (query_embedding.tolist(),))
+
+            result = cursor.fetchall()
+            for row in result:
+                print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+
+            cursor.close()
+
+            if result:
+                response = [
+                    {
+                        "video_path": f"/media/V3C/V3C1/video-480p/{row[0]}",
+                        "frame_time": row[1],
+                        "similarity": row[2]
+                    }
+                    for row in result
+                ]
+                print(response)
+                return JSONResponse(response)
+            else:
+                return JSONResponse({"message": "No video found"}, status_code=404)
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/")
 async def read_root(request: Request):
