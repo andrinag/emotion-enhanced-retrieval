@@ -148,7 +148,7 @@ async def search_images(request: Request, query: str):
                 for row in result
             ]
             print(response)
-            return JSONResponse(content=response, media_type="application/json")
+            return JSONResponse(content={"videos": response}, media_type="application/json")
         else:
             return JSONResponse({"message": "No video found"}, status_code=404)
 
