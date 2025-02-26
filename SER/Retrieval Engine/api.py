@@ -122,8 +122,11 @@ async def search_images(request: Request, query: str):
     This endpoint now supports both GET and POST requests.
     """
     if request.method == "POST":
-        body = await request.json()
-        query = body.get("query", query)  # Fallback to URL param if body is missing
+        try:
+            body = await request.json()
+            query = body.get("query", query)  # Use body query if provided
+        except Exception as e:
+            return JSONResponse(content={"error": f"Invalid JSON: {str(e)}"}, status_code=400)
 
         print(f"Received Query: {query}")
         try:
