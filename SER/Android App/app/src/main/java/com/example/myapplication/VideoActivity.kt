@@ -10,6 +10,8 @@ import com.android.volley.toolbox.Volley
 import java.util.concurrent.ExecutorService
 import android.net.Uri
 import android.view.View
+import android.widget.Button
+import android.widget.EditText
 import android.widget.MediaController
 import android.widget.VideoView
 import com.android.volley.*
@@ -17,8 +19,11 @@ import org.json.JSONArray
 
 class VideoActivity : AppCompatActivity() {
 
-    lateinit var simpleVideoView: VideoView
+    private lateinit var editTextQuery: EditText
+    private lateinit var buttonSearch: Button
+    private lateinit var simpleVideoView: VideoView
     lateinit var mediaControls: MediaController
+
 
     /**
      * plays video as soon as activity is started
@@ -27,12 +32,22 @@ class VideoActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.video_player)
         simpleVideoView = findViewById<View>(R.id.simpleVideoView) as VideoView
+        editTextQuery = findViewById(R.id.editTextQuery)
+        buttonSearch = findViewById(R.id.buttonSearch)
+        mediaControls = MediaController(this)
+        mediaControls.setAnchorView(simpleVideoView)
+        simpleVideoView.setMediaController(mediaControls)
 
-        sendQueryRequest(this, "cat") { result ->
-            if (result != null) {
-                Log.d("VOLLEY", "response: $result" )
-            } else {
-                Log.e("VOLLEY", "Request failed")
+        buttonSearch.setOnClickListener {
+            val query = editTextQuery.text.toString().trim()
+            if (query.isNotEmpty()) {
+                sendQueryRequest(this, query) { result ->
+                    if (true) {
+                        Log.d("VOLLEY", "response: $result")
+                    } else {
+                        Log.e("VOLLEY", "Request failed")
+                    }
+                }
             }
         }
     }
@@ -60,6 +75,7 @@ class VideoActivity : AppCompatActivity() {
                         val videoUrl = "$baseUrl$videoPath"
                         Log.d("VOLLEY", "Playing video from URL: $videoUrl")
                         (context as? VideoActivity)?.playVideo(videoUrl)
+                        playVideo(videoUrl)
                     } else {
                         Log.e("VOLLEY", "No videos found in response")
                     }
@@ -89,31 +105,25 @@ class VideoActivity : AppCompatActivity() {
     }
 
 
-    fun playVideo(url: String) {
-        if (!::mediaControls.isInitialized) {
-            mediaControls = MediaController(this)
-            mediaControls.setAnchorView(this.simpleVideoView)
-        }
-        simpleVideoView.setMediaController(mediaControls)
-        simpleVideoView.setVideoURI(Uri.parse(url))
+    private fun playVideo(url: String) {
+        Log.i("VIDEO", "Starting video playback for: $url")
 
-        simpleVideoView.requestFocus()
-        simpleVideoView.start()
-        simpleVideoView.setOnCompletionListener {
-            Toast.makeText(
-                applicationContext, "Video completed",
-                Toast.LENGTH_LONG
-            ).show()
-            true
+        val uri = Uri.parse(url)
+        simpleVideoView.setVideoURI(uri)
+
+        simpleVideoView.setOnPreparedListener { mediaPlayer ->
+            mediaPlayer.start()
         }
-        simpleVideoView.setOnErrorListener { mp, what, extra ->
-            Toast.makeText(
-                applicationContext,
-                "An Error Occurred " + "While Playing Video !!!",
-                Toast.LENGTH_LONG
-            ).show()
+
+        simpleVideoView.setOnCompletionListener {
+            Log.i("VIDEO", "Playback completed")
+            Toast.makeText(this, "Video completed", Toast.LENGTH_LONG).show()
+        }
+
+        simpleVideoView.setOnErrorListener { _, _, _ ->
+            Log.e("VIDEO", "Error playing video: $url")
+            Toast.makeText(this, "Error playing video", Toast.LENGTH_LONG).show()
             false
         }
     }
-
 }

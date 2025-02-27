@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="editTextQuery" type="id" />
+    <item name="buttonSearch" type="id" />
+    <item name="simpleVideoView" type="id" />
+</resources>
