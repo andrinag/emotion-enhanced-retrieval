@@ -74,16 +74,10 @@ def get_embedding(input_text=None, input_image=None):
             return features.numpy().flatten()
 
 
-from fastapi import FastAPI, Request, Header, HTTPException
-from fastapi.responses import Response
-from pathlib import Path
-
-app = FastAPI()
-
 VIDEO_DIRECTORY = "/media/V3C/V3C1/video-480p/"
 fallback_dir = "/media/V3C/V3C2/video-480p/"
 
-@app.get("/media/V3C/V3C1/video-480p/{video_name}")
+@app.api_route("/media/V3C/V3C1/video-480p/{video_name}", methods=["GET", "HEAD"])
 async def video_endpoint(video_name: str, range: str = Header(None)):
     """
     serves videos for http requests
