@@ -27,7 +27,6 @@ class VideoActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.video_player)
         simpleVideoView = findViewById<View>(R.id.simpleVideoView) as VideoView
-        playVideo()
 
         sendQueryRequest(this, "cat") { result ->
             if (result != null) {
@@ -53,6 +52,18 @@ class VideoActivity : AppCompatActivity() {
                     val result = JSONArray(response)
                     Log.d("VOLLEY", "Callback being executed with response: $result")
                     callback(result)
+                    Log.i("VIDEO", "starting to play the video here")
+                    if (result.length() > 0) {
+                        val firstVideo = result.getJSONObject(0)
+                        val videoPath = firstVideo.getString("video_path")
+                        val baseUrl = "http://10.34.64.139:8001"
+                        val videoUrl = "$baseUrl$videoPath"
+                        Log.d("VOLLEY", "Playing video from URL: $videoUrl")
+                        (context as? VideoActivity)?.playVideo(videoUrl)
+                    } else {
+                        Log.e("VOLLEY", "No videos found in response")
+                    }
+
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
                 }
@@ -78,13 +89,13 @@ class VideoActivity : AppCompatActivity() {
     }
 
 
-    fun playVideo() {
+    fun playVideo(url: String) {
         if (!::mediaControls.isInitialized) {
             mediaControls = MediaController(this)
             mediaControls.setAnchorView(this.simpleVideoView)
         }
         simpleVideoView.setMediaController(mediaControls)
-        // simpleVideoView.setVideoURI(Uri.parse(url))
+        simpleVideoView.setVideoURI(Uri.parse(url))
 
         simpleVideoView.requestFocus()
         simpleVideoView.start()
