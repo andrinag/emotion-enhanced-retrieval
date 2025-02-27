@@ -29,24 +29,50 @@ class VideoActivity : AppCompatActivity() {
         simpleVideoView = findViewById<View>(R.id.simpleVideoView) as VideoView
         playVideo()
 
-        // sendQueryRequest(this, "cat")
+        sendQueryRequest(this, "cat") { result ->
+            if (result != null) {
+                Log.d("VOLLEY", "response: $result" )
+            } else {
+                Log.e("VOLLEY", "Request failed")
+            }
+        }
     }
 
 
-    fun sendQueryRequest(context: android.content.Context, query: String) {
+    fun sendQueryRequest(context: android.content.Context, query: String, callback: (JSONArray) -> Unit) {
         val url = "http://10.34.64.139:8001/search/$query"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
         val stringRequest = StringRequest(
             Request.Method.GET, url,
-            { response ->
+            Response.Listener<String> { response ->
                 Log.i("VOLLEY", "Success! Response: $response")
-                val jsonArray = JSONArray(response)
+
+                try {
+                    val result = JSONArray(response)
+                    Log.d("VOLLEY", "Callback being executed with response: $result")
+                    callback(result)
+                } catch (e: Exception) {
+                    Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
+                }
             },
             { error ->
-                Log.e("VOLLEY", "Error: ${error.message}")
+                Log.e("VOLLEY", "Volley Error: ${error.message}")
+
+                if (error.networkResponse != null) {
+                    val statusCode = error.networkResponse.statusCode
+                    val responseBody = error.networkResponse.data?.let { String(it) }
+                    Log.e("VOLLEY", "HTTP Status Code: $statusCode")
+                    Log.e("VOLLEY", "Error Response Body: $responseBody")
+                }
             })
+
+        stringRequest.retryPolicy = DefaultRetryPolicy(
+            10000,
+            DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+            DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+        )
 
         requestQueue.add(stringRequest)
     }
@@ -58,7 +84,7 @@ class VideoActivity : AppCompatActivity() {
             mediaControls.setAnchorView(this.simpleVideoView)
         }
         simpleVideoView.setMediaController(mediaControls)
-        simpleVideoView.setVideoURI(Uri.parse("android.resource://" + packageName + "/" + R.raw.giraffes_1280p))
+        // simpleVideoView.setVideoURI(Uri.parse(url))
 
         simpleVideoView.requestFocus()
         simpleVideoView.start()
