@@ -74,6 +74,56 @@ def get_embedding(input_text=None, input_image=None):
             return features.numpy().flatten()
 
 
+from fastapi import FastAPI, Request, Header, HTTPException
+from fastapi.responses import Response
+from pathlib import Path
+
+app = FastAPI()
+
+VIDEO_DIRECTORY = "/media/V3C/V3C1/video-480p/"
+fallback_dir = "/media/V3C/V3C2/video-480p/"
+
+@app.get("/media/V3C/V3C1/video-480p/{video_name}")
+async def video_endpoint(video_name: str, range: str = Header(None)):
+    """
+    serves videos for http requests
+    """
+    file_path = Path(VIDEO_DIRECTORY) / video_name
+
+    if not file_path.exists():
+        file_path = Path(fallback_dir) / video_name
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Video not found")
+    file_size = file_path.stat().st_size
+
+    with open(file_path, "rb") as video:
+        if range:
+            start, end = range.replace("bytes=", "").split("-")
+            start = int(start) if start else 0
+            end = int(end) if end else min(start + 1024 * 1024, file_size - 1)
+
+            video.seek(start)
+            data = video.read(end - start + 1)
+
+            headers = {
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(data)),
+                "Content-Type": "video/mp4",
+            }
+
+            return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+
+        data = video.read()
+        headers = {
+            "Content-Length": str(file_size),
+            "Content-Type": "video/mp4",
+            "Accept-Ranges": "bytes",
+        }
+        return Response(data, status_code=200, headers=headers, media_type="video/mp4")
+
+
+
 ################## IMAGE TO IMAGE SEARCH #################################################
 @app.post("/search_image_to_image/")
 async def search_image_to_image(file: UploadFile = File(...)):
