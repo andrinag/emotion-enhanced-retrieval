@@ -159,6 +159,8 @@ async def search_images(request: Request, query: str):
     Search for videos related to the query and return the video path.
     TODO: make normalization of the result values for text to image
     """
+    dir_1 = "/media/V3C/V3C1/video-480p/"
+    dir_2 = "/media/V3C/V3C2/video-480p/"
     try:
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
@@ -177,15 +179,21 @@ async def search_images(request: Request, query: str):
         """, (query_embedding.tolist(),))
 
         result = cursor.fetchall()
-        for row in result:
-            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
-
         cursor.close()
 
-        if result:
+        if not result:
+            return JSONResponse({"message":"No video found"}, status_code=404)
+
+        response = []
+        for row in result:
+            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+            if os.path.exists(dir_1 + row[0]):
+                final_path = dir_1 + row[0]
+            else:
+                final_path = dir_2 + row[0]
             response = [
                 {
-                    "video_path": f"/media/V3C/V3C1/video-480p/{row[0]}",
+                    "video_path": final_path,
                     "frame_time": row[1],
                     "similarity": row[2]
                 }

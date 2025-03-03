@@ -270,7 +270,7 @@ async def process_videos(files: list[UploadFile] = File(...)):
             cursor.close()
             release_db_connection(conn)
 
-            boundary_file = os.path.splitext(mastershot_dir_1)[0] + "/" + video_filename.split(".")[0] + ".tsv"
+            boundary_file = os.path.splitext(mastershot_dir_2)[0] + "/" + video_filename.split(".")[0] + ".tsv"
             if not os.path.exists(boundary_file):
                 print(f"Skipping {video_filename}: No boundary file found ({boundary_file})")
                 continue
