@@ -21,6 +21,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.MediaController
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.VideoView
 import androidx.camera.core.CameraSelector
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var simpleVideoView: VideoView
     lateinit var mediaControls: MediaController
     private lateinit var cameraExecutor: ExecutorService
+    private lateinit var progressBarVideo: ProgressBar
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
 
 
@@ -58,8 +60,10 @@ class MainActivity : AppCompatActivity() {
         buttonSearch = findViewById(R.id.buttonSearch)
         mediaControls = MediaController(this)
         mediaControls.setAnchorView(simpleVideoView)
+        progressBarVideo = findViewById(R.id.progressBarVideo)
         simpleVideoView.setMediaController(mediaControls)
         cameraExecutor = Executors.newSingleThreadExecutor()
+        progressBarVideo.visibility = View.GONE
 
         if (allPermissionsGranted()) {
             startCameraStream()
@@ -70,10 +74,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         buttonSearch.setOnClickListener {
+            progressBarVideo.visibility = View.VISIBLE
+            simpleVideoView.visibility = View.GONE
             val query = editTextQuery.text.toString().trim()
             if (query.isNotEmpty()) {
                 sendQueryRequest(this, query) { result ->
                     if (true) {
+                        simpleVideoView.visibility = View.VISIBLE
                         Log.d("VOLLEY", "response: $result")
                     } else {
                         Log.e("VOLLEY", "Request failed")
@@ -108,6 +115,7 @@ class MainActivity : AppCompatActivity() {
                         val baseUrl = "http://10.34.64.139:8001"
                         val videoUrl = "$baseUrl$videoPath"
                         Log.d("VOLLEY", "Playing video from URL: $videoUrl")
+                        progressBarVideo.visibility = View.GONE
                         (context as? MainActivity)?.playVideo(videoUrl)
                         playVideo(videoUrl)
                     } else {
@@ -120,6 +128,7 @@ class MainActivity : AppCompatActivity() {
             },
             { error ->
                 Log.e("VOLLEY", "Volley Error: ${error.message}")
+                progressBarVideo.visibility = View.GONE
 
                 if (error.networkResponse != null) {
                     val statusCode = error.networkResponse.statusCode
@@ -134,7 +143,7 @@ class MainActivity : AppCompatActivity() {
             DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
             DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         )
-
+        progressBarVideo.visibility = View.VISIBLE
         requestQueue.add(stringRequest)
     }
 
@@ -146,6 +155,8 @@ class MainActivity : AppCompatActivity() {
         simpleVideoView.setVideoURI(uri)
 
         simpleVideoView.setOnPreparedListener { mediaPlayer ->
+            progressBarVideo.visibility = View.GONE
+            simpleVideoView.visibility = View.VISIBLE
             mediaPlayer.start()
         }
 
