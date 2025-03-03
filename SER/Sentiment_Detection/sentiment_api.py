@@ -24,6 +24,9 @@ async def get_sentiment_for_image(image_path: str):
     top_emotion = predictions[0]["label"]
     confidence = predictions[0]["score"]
 
+    if confidence < 0.6:
+        return "neutral", "neutral"
+
     emotion_to_sentiment = {
         "angry": "negative",
         "disgust": "negative",
