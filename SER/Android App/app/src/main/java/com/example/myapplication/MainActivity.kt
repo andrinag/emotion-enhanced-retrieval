@@ -111,13 +111,20 @@ class MainActivity : AppCompatActivity() {
                     Log.i("VIDEO", "starting to play the video here")
                     if (result.length() > 0) {
                         val firstVideo = result.getJSONObject(0)
+                        val timeString = result.getJSONObject(0).getString("frame_time")
+                        var time: Double = 0.0
+                        try {
+                            time = timeString.toDouble()
+                        } catch (nfe: NumberFormatException) {
+                            Log.e("VIDEO", "Could not convert timeString to Float")
+                        }
                         val videoPath = firstVideo.getString("video_path")
                         val baseUrl = "http://10.34.64.139:8001"
                         val videoUrl = "$baseUrl$videoPath"
                         Log.d("VOLLEY", "Playing video from URL: $videoUrl")
                         progressBarVideo.visibility = View.GONE
-                        (context as? MainActivity)?.playVideo(videoUrl)
-                        playVideo(videoUrl)
+                        (context as? MainActivity)?.playVideo(videoUrl, time)
+                        playVideo(videoUrl, time)
                     } else {
                         Log.e("VOLLEY", "No videos found in response")
                     }
@@ -139,7 +146,7 @@ class MainActivity : AppCompatActivity() {
             })
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
-            10000,
+            100000,
             DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
             DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         )
@@ -148,7 +155,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun playVideo(url: String) {
+    private fun playVideo(url: String, time: Double) {
         Log.i("VIDEO", "Starting video playback for: $url")
 
         val uri = Uri.parse(url)
@@ -157,6 +164,8 @@ class MainActivity : AppCompatActivity() {
         simpleVideoView.setOnPreparedListener { mediaPlayer ->
             progressBarVideo.visibility = View.GONE
             simpleVideoView.visibility = View.VISIBLE
+            val seekPositionMs = (time * 1000).toInt()
+            mediaPlayer.seekTo(seekPositionMs)
             mediaPlayer.start()
         }
 
