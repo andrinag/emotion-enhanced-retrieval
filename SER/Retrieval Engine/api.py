@@ -77,17 +77,15 @@ def get_embedding(input_text=None, input_image=None):
 VIDEO_DIRECTORY = "/media/V3C/V3C1/video-480p/"
 fallback_dir = "/media/V3C/V3C2/video-480p/"
 
-@app.api_route("/media/V3C/V3C1/video-480p/{video_name}", methods=["GET", "HEAD"])
-async def video_endpoint(video_name: str, range: str = Header(None)):
+@app.api_route("/media/V3C/{subfolder}/video-480p/{video_name}", methods=["GET", "HEAD"])
+async def video_endpoint(subfolder: str, video_name: str, range: str = Header(None)):
     """
-    serves videos for http requests
+    serves videos for http requests ( relevant for the app, not the website)
     """
-    file_path = Path(VIDEO_DIRECTORY) / video_name
+    file_path = Path(f"/media/V3C/{subfolder}/video-480p/") / video_name
 
     if not file_path.exists():
-        file_path = Path(fallback_dir) / video_name
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail="Video not found")
+        raise HTTPException(status_code=404, detail="Video not found")
     file_size = file_path.stat().st_size
 
     with open(file_path, "rb") as video:
