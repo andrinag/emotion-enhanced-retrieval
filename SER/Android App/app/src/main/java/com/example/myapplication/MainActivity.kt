@@ -220,7 +220,7 @@ class MainActivity : AppCompatActivity() {
                     analyzer.setAnalyzer(cameraExecutor) { image ->
                         val currentTime = System.currentTimeMillis()
 
-                        if (currentTime - lastSentTime >= 2000) {
+                        if (currentTime - lastSentTime >= 1000) {
                             Log.d("CameraStream", "Sending image...")
 
                             // val bitmap = imageProxyToBitmap(image)

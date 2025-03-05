@@ -38,6 +38,10 @@ async def get_sentiment_for_image(image_path: str):
 
     print(f"Predicted Emotion: {top_emotion} ({confidence:.2f})")
     print(f"Mapped Sentiment: {sentiment}")
+    for i in range(0, len(predictions)):
+        top_emotion = predictions[i]["label"]
+        confidence = predictions[i]["score"]
+        print(f"Predicted Emotion: {top_emotion} ({confidence:.2f})")
 
     return top_emotion, sentiment
 
