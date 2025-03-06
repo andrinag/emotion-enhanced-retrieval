@@ -6,6 +6,7 @@ from pydantic import BaseModel
 import base64
 from PIL import Image
 import io
+import cv2
 
 
 
@@ -39,9 +40,9 @@ async def get_sentiment_for_image(image_path: str):
     print(f"Predicted Emotion: {top_emotion} ({confidence:.2f})")
     print(f"Mapped Sentiment: {sentiment}")
     for i in range(0, len(predictions)):
-        top_emotion = predictions[i]["label"]
-        confidence = predictions[i]["score"]
-        print(f"Predicted Emotion: {top_emotion} ({confidence:.2f})")
+        emotion = predictions[i]["label"]
+        confidence1 = predictions[i]["score"]
+        print(f"Predicted Emotion: {emotion} ({confidence1:.2f})")
 
     return top_emotion, sentiment
 
@@ -55,6 +56,7 @@ async def upload_base64_image(data: ImageRequest):
     try:
         image_data = base64.b64decode(data.image)
         image = Image.open(io.BytesIO(image_data))
+        image = image.rotate(90.0)
         image.save("output_image.png", "PNG")
         top_emotion, sentiment = await get_sentiment_for_image("output_image.png")
 
