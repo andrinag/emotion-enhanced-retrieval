@@ -12,15 +12,14 @@ import cv2
 
 app = FastAPI()
 
-pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
-processor = AutoImageProcessor.from_pretrained("dima806/facial_emotions_image_detection")
-model = AutoModelForImageClassification.from_pretrained("dima806/facial_emotions_image_detection")
-
 class ImageRequest(BaseModel):
     image: str  # Base64 encoded image
 
 
 async def get_sentiment_for_image(image_path: str):
+    pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
+    processor = AutoImageProcessor.from_pretrained("dima806/facial_emotions_image_detection")
+    model = AutoModelForImageClassification.from_pretrained("dima806/facial_emotions_image_detection")
     predictions = pipe(image_path)
     top_emotion = predictions[0]["label"]
     confidence = predictions[0]["score"]
@@ -39,12 +38,22 @@ async def get_sentiment_for_image(image_path: str):
 
     print(f"Predicted Emotion: {top_emotion} ({confidence:.2f})")
     print(f"Mapped Sentiment: {sentiment}")
-    for i in range(0, len(predictions)):
+    """for i in range(0, len(predictions)):
         emotion = predictions[i]["label"]
         confidence1 = predictions[i]["score"]
-        print(f"Predicted Emotion: {emotion} ({confidence1:.2f})")
+        print(f"Predicted Emotion: {emotion} ({confidence1:.2f})")"""
 
     return top_emotion, sentiment
+
+async def get_sentiment_for_query(query:str):
+    # multilingual model
+    distilled_student_sentiment_classifier = pipeline(
+        model="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
+        return_all_scores=True
+    )
+    sentiment = distilled_student_sentiment_classifier(query)
+    return sentiment
+
 
 
 @app.api_route("/test", methods=["GET", "POST"])
@@ -64,6 +73,13 @@ async def upload_base64_image(data: ImageRequest):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/upload_query")
+async def upload_query(query: str):
+    try:
+        sentiment = await get_sentiment_for_query(query)
+        return {"sentiment": sentiment}
+    except Exception as e:
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8003)
