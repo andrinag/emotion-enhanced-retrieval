@@ -76,11 +76,17 @@ async def get_sentiment_for_query(query: str):
     return sentiment
 
 
+async def get_emotion_for_query(query: str):
+    from transformers import pipeline
+    classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
+    emotion = classifier(query)
+    return emotion
+
 @app.post("/upload_query")
 async def upload_query(data: QueryRequest):
     try:
-        sentiment = await get_sentiment_for_query(data.query)
-        return {"sentiment": sentiment}
+        emotion = await get_emotion_for_query(data.query)
+        return {"emotion": emotion}
     except Exception as e:
         return {"error": str(e)}
 
