@@ -12,6 +12,8 @@ import cv2
 
 app = FastAPI()
 
+############################# SENTIMENT OF FACE #####################################
+
 class ImageRequest(BaseModel):
     image: str  # Base64 encoded image
 
@@ -45,21 +47,6 @@ async def get_sentiment_for_image(image_path: str):
 
     return top_emotion, sentiment
 
-async def get_sentiment_for_query(query:str):
-    # multilingual model
-    distilled_student_sentiment_classifier = pipeline(
-        model="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
-        return_all_scores=True
-    )
-    sentiment = distilled_student_sentiment_classifier(query)
-    return sentiment
-
-
-
-@app.api_route("/test", methods=["GET", "POST"])
-async def test():
-    return "hello"
-
 @app.post("/upload_base64")
 async def upload_base64_image(data: ImageRequest):
     try:
@@ -73,13 +60,30 @@ async def upload_base64_image(data: ImageRequest):
     except Exception as e:
         return {"error": str(e)}
 
+
+######################## SENTIMENT OF TEXT QUERY ###################################
+
+
+class QueryRequest(BaseModel):
+    query: str
+
+async def get_sentiment_for_query(query: str):
+    sentiment_classifier = pipeline(
+        model="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
+        return_all_scores=True
+    )
+    sentiment = sentiment_classifier(query)
+    return sentiment
+
+
 @app.post("/upload_query")
-async def upload_query(query: str):
+async def upload_query(data: QueryRequest):
     try:
-        sentiment = await get_sentiment_for_query(query)
+        sentiment = await get_sentiment_for_query(data.query)
         return {"sentiment": sentiment}
     except Exception as e:
         return {"error": str(e)}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8003)
