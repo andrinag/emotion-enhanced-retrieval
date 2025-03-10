@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity() {
             simpleVideoView.visibility = View.GONE
             val query = editTextQuery.text.toString().trim()
             if (query.isNotEmpty()) {
+                sendPostRequestSentimentQuery(this, query)
                 sendQueryRequest(this, query) { result ->
                     if (true) {
                         simpleVideoView.visibility = View.VISIBLE
@@ -225,7 +226,7 @@ class MainActivity : AppCompatActivity() {
 
                             // val bitmap = imageProxyToBitmap(image)
                             val bitmap = imageProxyToBase64(image)
-                            var response = sendPostRequest(this, bitmap)
+                            var response = sendPostRequestSentiment(this, bitmap)
                             lastSentTime = currentTime
                         }
                         image.close()
@@ -284,7 +285,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * sends post request (with VOLLEY) to the sentiment api
      */
-    fun sendPostRequest(context: android.content.Context, base64Image: String) {
+    fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
         // TODO needs to be changed to the node adress
         val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
         val jsonBody = JSONObject()
@@ -322,6 +323,66 @@ class MainActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     findViewById<TextView>(R.id.text).text = "Error: Could not get response"
+                }
+            }) {
+
+            override fun getBodyContentType(): String {
+                return "application/json; charset=utf-8"
+            }
+
+            override fun getBody(): ByteArray {
+                return requestBody.toByteArray(Charsets.UTF_8)
+            }
+
+            override fun parseNetworkResponse(response: NetworkResponse?): Response<String> {
+                val responseString = response?.data?.let { String(it) } ?: "No Response"
+                return Response.success(responseString, HttpHeaderParser.parseCacheHeaders(response))
+            }
+        }
+
+        requestQueue.add(stringRequest)
+    }
+
+    fun sendPostRequestSentimentQuery(context: android.content.Context, query: String) {
+        // TODO needs to be changed to the node adress
+        val url = "http://10.34.64.139:8003/upload_query" // adress of the sentiment api
+        val jsonBody = JSONObject()
+        jsonBody.put("query", query)
+        val requestBody = jsonBody.toString()
+
+        val requestQueue: RequestQueue = Volley.newRequestQueue(context)
+
+        val stringRequest = object : StringRequest(Method.POST, url,
+            Response.Listener { response ->
+                Log.i("VOLLEY", "Success! Response: $response")
+
+                try {
+                    val jsonResponse = JSONObject(response).getJSONArray("emotion")
+                    val firstSentiment = jsonResponse.getJSONObject(0)
+                    val sentimentLabel = firstSentiment.getString("label")
+                    val sentimentScore = firstSentiment.getDouble("score")
+
+                    val sentimentText = "Sentiment: $sentimentLabel (${String.format("%.2f", sentimentScore)})"
+                    runOnUiThread {
+                        findViewById<TextView>(R.id.querySentiment).text = sentimentText
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
+                }
+
+            },
+            Response.ErrorListener { error ->
+                Log.e("VOLLEY", "Error: ${error.message}")
+                if (error.networkResponse != null) {
+                    val statusCode = error.networkResponse.statusCode
+                    val responseData = error.networkResponse.data?.let { String(it) } ?: "No response body"
+                    Log.e("VOLLEY", "HTTP Status Code: $statusCode")
+                    Log.e("VOLLEY", "Response Data: $responseData")
+                }
+
+                runOnUiThread {
+                    findViewById<TextView>(R.id.querySentiment).text = "Error: Could not get response"
                 }
             }) {
 
