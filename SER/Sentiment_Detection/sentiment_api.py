@@ -17,7 +17,7 @@ app = FastAPI()
 class ImageRequest(BaseModel):
     image: str  # Base64 encoded image
 
-pipe_sentiment_face = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
+pipe_sentiment_face = pipeline("image-classification", model="trpakov/vit-face-expression")
 
 
 async def get_sentiment_for_image(image_path: str):
