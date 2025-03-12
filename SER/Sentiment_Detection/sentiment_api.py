@@ -17,12 +17,11 @@ app = FastAPI()
 class ImageRequest(BaseModel):
     image: str  # Base64 encoded image
 
+pipe_sentiment_face = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
+
 
 async def get_sentiment_for_image(image_path: str):
-    pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
-    processor = AutoImageProcessor.from_pretrained("dima806/facial_emotions_image_detection")
-    model = AutoModelForImageClassification.from_pretrained("dima806/facial_emotions_image_detection")
-    predictions = pipe(image_path)
+    predictions = pipe_sentiment_face(image_path)
     top_emotion = predictions[0]["label"]
     confidence = predictions[0]["score"]
 
@@ -67,19 +66,19 @@ async def upload_base64_image(data: ImageRequest):
 class QueryRequest(BaseModel):
     query: str
 
+sentiment_text_classifier = pipeline(
+    model="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
+    return_all_scores=True
+)
+emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
+
 async def get_sentiment_for_query(query: str):
-    sentiment_classifier = pipeline(
-        model="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
-        return_all_scores=True
-    )
-    sentiment = sentiment_classifier(query)
+    sentiment = sentiment_text_classifier(query)
     return sentiment
 
 
 async def get_emotion_for_query(query: str):
-    from transformers import pipeline
-    classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
-    emotion = classifier(query)
+    emotion = emotion_text_classifier(query)
     return emotion
 
 @app.post("/upload_query")
