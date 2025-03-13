@@ -8,13 +8,51 @@ from deepface import DeepFace
 from PIL import Image
 from transformers import pipeline
 from collections import defaultdict
+import whisper
+from transformers import AutoModel, AutoTokenizer
+from PIL import Image
+import pytesseract
+from tesserocr import PyTessBaseAPI
 
+
+from moviepy import VideoFileClip
 
 class SentimentDetector:
     def __init__(self):
-        # sentiment models
+        # models
         self.pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
         self.pipe2 = pipeline("image-classification", model="trpakov/vit-face-expression")
+        self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
+        self.whisper = whisper.load_model("turbo")
+
+    @staticmethod
+    def convert_mp4_to_mp3(mp4_file, mp3_file, start_time=0, end_time=1000):
+        if not os.path.exists(mp4_file):
+            raise FileNotFoundError(f"Error: The file {mp4_file} was not found.")
+
+        video = VideoFileClip(mp4_file)
+
+        if end_time is None or end_time > video.duration:
+            end_time = video.duration
+
+        audio = video.audio.subclipped(start_time, end_time)
+        audio.write_audiofile(mp3_file)
+        audio.close()
+        video.close()
+
+    @staticmethod
+    async def get_text_from_mp3(audio_file):
+        model = whisper.load_model("tiny")  # "tiny" or "small" to avoid memory issues, change on node
+        result = model.transcribe(audio_file)
+
+        if "text" in result:
+            return result["text"]
+        else:
+            return None
+
+    async def get_sentiment_from_text(self, text:str):
+        emotion = self.emotion_text_classifier(text)
+        return emotion
 
     async def get_sentiment_for_image(self, image):
         predictions = self.pipe(image)
@@ -76,8 +114,16 @@ class SentimentDetector:
         return weighted_avg_sentiment
 
 
-if __name__ == "__main__":
+async def main():
     SD = SentimentDetector()
+    """
+    SD.convert_mp4_to_mp3("./videos/00002.mp4", "./mp3/00002.mp3")
+    text = await SD.get_text_from_mp3("./mp3/00002.mp3")
+    print(text)
+    sentiment = await SD.get_sentiment_from_text(text)
+    print(sentiment)"""
+
+    """
     results1 = SD.detect_faces_and_get_sentiment("./frames/00001.mp4_frame_6307.jpg")
     print("Image 1 Average Sentiment:", results1)
 
@@ -91,4 +137,6 @@ if __name__ == "__main__":
     print("Image 4 Average Sentiment:", results4)
 
     results5 = SD.detect_faces_and_get_sentiment("./frames/00002.mp4_frame_2888.jpg")
-    print("Image 5 Average Sentiment:", results5)
+    print("Image 5 Average Sentiment:", results5) """
+
+asyncio.run(main())
