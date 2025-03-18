@@ -12,6 +12,9 @@ import os
 import traceback
 import numpy as np
 import pandas as pd
+import ffmpeg
+from transformers import pipeline, AutoImageProcessor, AutoModelForImageClassification
+from sentiment_detector import SentimentDetector
 
 MAX_WORKERS = 16
 BATCH_SIZE = 50
@@ -32,6 +35,8 @@ mastershot_dir_1 = "/home/ubuntu/V3C1_msb/msb"
 mastershot_dir_2 = "/home/ubuntu/V3C2_msb/msb"
 
 app = FastAPI()
+
+SD = SentimentDetector()
 # connection to the local database
 from psycopg2 import pool
 
@@ -231,9 +236,26 @@ def process_frame(frame_info, object_id):
         embedding = get_embedding(input_image=img_byte_arr.getvalue()) # calls the methods that uses CLIP
         embedding = normalize_embedding(embedding)
 
+        # detecting emotion in face (if exists)
+        face_emotion = SD.detect_faces_and_get_emotion(frame_path)
+
+        if face_emotion:
+            total_score = sum(face_emotion.values())
+            emotion_percentage = {key: value / total_score for key, value in face_emotion.items()}
+            # get the dominant emotion and percentage from all the values
+            dominant_emotion = max(emotion_percentage, key=emotion_percentage.get)
+            highest_percentage = emotion_percentage[dominant_emotion]
+        else:
+            dominant_emotion = None
+            highest_percentage = 0
+
         cursor.execute(
-            "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, %s, %s);",
-            (object_id, float(frame_time), embedding.tolist())
+            """
+            INSERT INTO multimedia_embeddings 
+            (object_id, frame_time, embedding, emotion_face, emotion_percentage_face) 
+            VALUES (%s, %s, %s, %s, %s);
+            """,
+            (object_id, float(frame_time), embedding.tolist(), dominant_emotion, highest_percentage)
         )
         conn.commit()
     except Exception as e:
@@ -270,7 +292,7 @@ async def process_videos(files: list[UploadFile] = File(...)):
             cursor.close()
             release_db_connection(conn)
 
-            boundary_file = os.path.splitext(mastershot_dir_2)[0] + "/" + video_filename.split(".")[0] + ".tsv"
+            boundary_file = os.path.splitext(mastershot_dir_1)[0] + "/" + video_filename.split(".")[0] + ".tsv"
             if not os.path.exists(boundary_file):
                 print(f"Skipping {video_filename}: No boundary file found ({boundary_file})")
                 continue
