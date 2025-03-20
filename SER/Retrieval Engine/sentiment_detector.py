@@ -11,10 +11,6 @@ from collections import defaultdict
 import whisper
 from transformers import AutoModel, AutoTokenizer
 from PIL import Image
-import pytesseract
-from tesserocr import PyTessBaseAPI
-
-
 from moviepy import VideoFileClip
 
 class SentimentDetector:
@@ -22,8 +18,8 @@ class SentimentDetector:
         # models
         self.pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
         self.pipe2 = pipeline("image-classification", model="trpakov/vit-face-expression")
-        #self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
-        #self.whisper = whisper.load_model("turbo")
+        self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
+        self.whisper = whisper.load_model("turbo")
 
     @staticmethod
     def convert_mp4_to_mp3(mp4_file, mp3_file, start_time=0, end_time=1000):
