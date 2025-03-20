@@ -15,6 +15,7 @@ import pandas as pd
 import ffmpeg
 from transformers import pipeline, AutoImageProcessor, AutoModelForImageClassification
 from sentiment_detector import SentimentDetector
+from psycopg2 import pool
 
 MAX_WORKERS = 16
 BATCH_SIZE = 50
@@ -32,13 +33,11 @@ if not os.path.exists(FRAME_STORAGE):
     os.makedirs(FRAME_STORAGE)
 
 mastershot_dir_1 = "/home/ubuntu/V3C1_msb/msb"
-mastershot_dir_2 = "/home/ubuntu/V3C2_msb/msb"
+# mastershot_dir_1  = "./V3C1_msb/msb"
 
 app = FastAPI()
 
-SD = SentimentDetector()
-# connection to the local database
-from psycopg2 import pool
+# SD = SentimentDetector()
 
 db_pool = psycopg2.pool.SimpleConnectionPool(
     1, 20,  # Min and max connections
@@ -118,8 +117,8 @@ def insert_image_metadata(filename):
     """
     try:
         cursor = get_db_connection().cursor()
-        cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
-                       ("image", filename))
+        cursor.execute("INSERT INTO multimedia_objects (location) VALUES (%s) RETURNING object_id;",
+                       (filename,))
         object_id = cursor.fetchone()[0]
         get_db_connection().commit()
         return object_id
@@ -199,7 +198,7 @@ def extract_frames(video_path, output_folder, msb_file):
             continue
         frame_filename = os.path.join(output_folder, f"{os.path.basename(video_path)}_frame_{middle_frame}.jpg")
         cv2.imwrite(frame_filename, image)
-        frame_paths.append((frame_filename, middle_time))
+        frame_paths.append((frame_filename, middle_time, middle_frame))
 
     cap.release()
     return frame_paths
@@ -213,8 +212,8 @@ def insert_video_metadata(video_filename):
     """
     cursor = get_db_connection().cursor()
     try:
-        cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
-                       ("video", video_filename))
+        cursor.execute("INSERT INTO multimedia_objects (location) VALUES (%s) RETURNING object_id;",
+                       (video_filename,))
         object_id = cursor.fetchone()[0]
         get_db_connection().commit()
         return object_id
@@ -229,33 +228,31 @@ def process_frame(frame_info, object_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        frame_path, frame_time = frame_info
+        frame_path, frame_time, middle_frame = frame_info
         image = Image.open(frame_path).convert("RGB")
         img_byte_arr = io.BytesIO()
         image.save(img_byte_arr, format="PNG")
         embedding = get_embedding(input_image=img_byte_arr.getvalue()) # calls the methods that uses CLIP
         embedding = normalize_embedding(embedding)
 
-        # detecting emotion in face (if exists)
-        face_emotion = SD.detect_faces_and_get_emotion(frame_path)
-
-        if face_emotion:
-            total_score = sum(face_emotion.values())
-            emotion_percentage = {key: value / total_score for key, value in face_emotion.items()}
-            # get the dominant emotion and percentage from all the values
-            dominant_emotion = max(emotion_percentage, key=emotion_percentage.get)
-            highest_percentage = emotion_percentage[dominant_emotion]
-        else:
-            dominant_emotion = None
-            highest_percentage = 0
+        cursor.execute(
+            """
+            INSERT INTO multimedia_embeddings (object_id, frame, frame_time, embedding)
+            VALUES (%s, %s, %s, %s) RETURNING id;
+            """,
+            (object_id, int(middle_frame), float(frame_time), embedding.tolist())
+        )
+        embedding_id = cursor.fetchone()[0]
+        conn.commit()
+        SD = SentimentDetector()
+        emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
 
         cursor.execute(
             """
-            INSERT INTO multimedia_embeddings 
-            (object_id, frame_time, embedding, emotion_face, emotion_percentage_face) 
+            INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
             VALUES (%s, %s, %s, %s, %s);
             """,
-            (object_id, float(frame_time), embedding.tolist(), dominant_emotion, highest_percentage)
+            (embedding_id, emotion, confidence, emotion, annotated_path)
         )
         conn.commit()
     except Exception as e:
@@ -264,6 +261,7 @@ def process_frame(frame_info, object_id):
     finally:
         cursor.close()
         release_db_connection(conn)
+
 
 @app.post("/upload_videos/")
 async def process_videos(files: list[UploadFile] = File(...)):
@@ -277,6 +275,7 @@ async def process_videos(files: list[UploadFile] = File(...)):
             if existing_object_id:
                 print(f"Skipping {file.filename}: Already exists in the database.")
                 continue
+            SD = SentimentDetector()
 
             video_filename = file.filename
             video_path = os.path.join(FRAME_STORAGE, video_filename)
@@ -285,8 +284,8 @@ async def process_videos(files: list[UploadFile] = File(...)):
             conn = get_db_connection()
             cursor = conn.cursor()
             # Todo change this to the metadata method
-            cursor.execute("INSERT INTO multimedia_objects (type, location) VALUES (%s, %s) RETURNING object_id;",
-                           ("video", file.filename))
+            cursor.execute("INSERT INTO multimedia_objects (location) VALUES (%s) RETURNING object_id;",
+                           (file.filename,))
             object_id = cursor.fetchone()[0]
             conn.commit()
             cursor.close()

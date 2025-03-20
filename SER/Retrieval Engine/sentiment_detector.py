@@ -65,7 +65,10 @@ class SentimentDetector:
     def detect_faces_and_get_emotion_with_plots(self, file_path):
         if not os.path.exists(file_path):
             print("File path doesn't exist")
-            return
+            return None, None, None, None
+
+        faces_dir = "./faces"
+        os.makedirs(faces_dir, exist_ok=True)  # Ensure the faces directory exists
 
         img = cv2.imread(file_path)
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -73,9 +76,9 @@ class SentimentDetector:
 
         if not faces:
             print("No faces detected")
-            return
+            return None, None, None, None
 
-        sentiment_scores = defaultdict(float)
+        emotion_scores = defaultdict(float)
         total_confidence = 0
         total_faces = 0
 
@@ -87,27 +90,31 @@ class SentimentDetector:
             face_pil = Image.fromarray(face)
 
             emotion, confidence = asyncio.run(self.get_emotion_for_image2(face_pil))
-
-            # Store weighted sentiment calculation per image
-            sentiment_scores[emotion] += confidence
+            emotion_scores[emotion] += confidence
             total_confidence += confidence
             total_faces += 1
 
-            # Draw rectangle and label
             cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(img, f"{emotion} ({confidence:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
                         2)
 
+        # Save the annotated image
+        annotated_path = os.path.join(faces_dir, f"annotated_{os.path.basename(file_path)}")
         plt.figure(figsize=(10, 5))
         plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         plt.axis("off")
-        plt.show()
+        plt.savefig(annotated_path)
+        plt.close()  # Close figure to free memory
 
-        if total_faces == 0:
-            return "No faces detected in this image."
+        print(f"Annotated face image saved at: {annotated_path}")
 
-        weighted_avg_sentiment = {emotion: score / total_confidence for emotion, score in sentiment_scores.items()}
-        return weighted_avg_sentiment
+        if total_faces == 0 or total_confidence == 0:
+            return None, None, None, None
+
+        weighted_avg_emotion = {emotion: score / total_confidence for emotion, score in emotion_scores.items()}
+        dominant_emotion = max(weighted_avg_emotion, key=weighted_avg_emotion.get)
+        dominant_sentiment = self.get_sentiment_from_emotion(dominant_emotion)
+        return dominant_emotion, weighted_avg_emotion[dominant_emotion], dominant_sentiment, annotated_path
 
 
     def detect_faces_and_get_emotion(self, file_path):
@@ -148,6 +155,20 @@ class SentimentDetector:
         weighted_avg_sentiment = {emotion: score / total_confidence for emotion, score in sentiment_scores.items()}
         return weighted_avg_sentiment
 
+
+    @staticmethod
+    def get_sentiment_from_emotion(emotion:str):
+        emotion_to_sentiment = {
+            "happy": "positive",
+            "sad": "negative",
+            "surprise": "positive",
+            "angry": "negative",
+            "neutral": "neutral",
+            "disgust": "negative",
+            "fear": "negative"
+        }
+        return emotion_to_sentiment.get(emotion.lower(), "neutral")
+
 """
 async def main():
     SD = SentimentDetector()
@@ -158,20 +179,20 @@ async def main():
     sentiment = await SD.get_emotion_from_text(text)
     print(sentiment) """
 
-"""
+
 SD = SentimentDetector()
-results1 = SD.detect_faces_and_get_emotion("./frames/00001.mp4_frame_6307.jpg")
+results1 = SD.detect_faces_and_get_emotion_with_plots("./frames/00001.mp4_frame_6307.jpg")
 print("Image 1 Average Sentiment:", results1)
 
-results2 = SD.detect_faces_and_get_emotion("./frames/00001.mp4_frame_4350.jpg")
+results2 = SD.detect_faces_and_get_emotion_with_plots("./frames/00001.mp4_frame_4350.jpg")
 print("Image 2 Average Sentiment:", results2)
 
-results3 = SD.detect_faces_and_get_emotion("./frames/00003.mp4_frame_8922.jpg")
+results3 = SD.detect_faces_and_get_emotion_with_plots("./frames/00003.mp4_frame_8922.jpg")
 print("Image 3 Average Sentiment:", results3)
 
-results4 = SD.detect_faces_and_get_emotion("./frames/00003.mp4_frame_10809.jpg")
+results4 = SD.detect_faces_and_get_emotion_with_plots("./frames/00003.mp4_frame_10809.jpg")
 print("Image 4 Average Sentiment:", results4)
 
-results5 = SD.detect_faces_and_get_emotion("./frames/00002.mp4_frame_2888.jpg")
-print("Image 5 Average Sentiment:", results5) """
+results5 = SD.detect_faces_and_get_emotion_with_plots("./frames/00002.mp4_frame_2888.jpg")
+print("Image 5 Average Sentiment:", results5)
 #asyncio.run(main())
