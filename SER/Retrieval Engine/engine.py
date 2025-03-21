@@ -34,6 +34,7 @@ if not os.path.exists(FRAME_STORAGE):
 
 mastershot_dir_1 = "/home/ubuntu/V3C1_msb/msb"
 # mastershot_dir_1  = "./V3C1_msb/msb"
+SD = SentimentDetector()
 
 app = FastAPI()
 
@@ -244,7 +245,6 @@ def process_frame(frame_info, object_id):
         )
         embedding_id = cursor.fetchone()[0]
         conn.commit()
-        SD = SentimentDetector()
         emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
 
         cursor.execute(
