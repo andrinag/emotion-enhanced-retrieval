@@ -16,7 +16,7 @@ from moviepy import VideoFileClip
 class SentimentDetector:
     def __init__(self):
         # models
-        self.pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
+        #self.pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
         self.pipe2 = pipeline("image-classification", model="trpakov/vit-face-expression")
         self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
         self.whisper = whisper.load_model("turbo")
@@ -50,11 +50,12 @@ class SentimentDetector:
         emotion = self.emotion_text_classifier(text) # output: [{'label': 'joy', 'score': 0.9887555241584778}]
         return emotion
 
+    """
     async def get_emotion_for_image(self, image):
         predictions = self.pipe(image)
         top_emotion = predictions[0]["label"]
         confidence = predictions[0]["score"]
-        return top_emotion, confidence
+        return top_emotion, confidence"""
 
     async def get_emotion_for_image2(self, image):
         predictions = self.pipe2(image)
@@ -177,8 +178,7 @@ async def main():
     text = await SD.get_text_from_mp3("./mp3/00002.mp3")
     print(text)
     sentiment = await SD.get_emotion_from_text(text)
-    print(sentiment) """
-
+    print(sentiment)
 
 SD = SentimentDetector()
 results1 = SD.detect_faces_and_get_emotion_with_plots("./frames/00001.mp4_frame_6307.jpg")
@@ -195,4 +195,4 @@ print("Image 4 Average Sentiment:", results4)
 
 results5 = SD.detect_faces_and_get_emotion_with_plots("./frames/00002.mp4_frame_2888.jpg")
 print("Image 5 Average Sentiment:", results5)
-#asyncio.run(main())
+#asyncio.run(main())"""
