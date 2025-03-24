@@ -12,8 +12,6 @@ import os
 import traceback
 import numpy as np
 import pandas as pd
-import ffmpeg
-from transformers import pipeline, AutoImageProcessor, AutoModelForImageClassification
 from sentiment_detector import SentimentDetector
 from psycopg2 import pool
 
@@ -37,8 +35,6 @@ mastershot_dir_1 = "/home/ubuntu/V3C1_msb/msb"
 SD = SentimentDetector()
 
 app = FastAPI()
-
-# SD = SentimentDetector()
 
 db_pool = psycopg2.pool.SimpleConnectionPool(
     1, 20,  # Min and max connections
@@ -275,7 +271,6 @@ async def process_videos(files: list[UploadFile] = File(...)):
             if existing_object_id:
                 print(f"Skipping {file.filename}: Already exists in the database.")
                 continue
-            SD = SentimentDetector()
 
             video_filename = file.filename
             video_path = os.path.join(FRAME_STORAGE, video_filename)
