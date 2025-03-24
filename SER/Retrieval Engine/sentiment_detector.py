@@ -69,7 +69,7 @@ class SentimentDetector:
 
         img = cv2.imread(file_path)
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        faces = DeepFace.extract_faces(file_path, detector_backend="retinaface")
+        faces = DeepFace.extract_faces(file_path, detector_backend="retinaface", enforce_detection=False)
 
         if not faces:
             print("No faces detected")
