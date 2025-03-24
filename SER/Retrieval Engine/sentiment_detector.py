@@ -1,15 +1,11 @@
 import os
 import cv2
-import torch
 import asyncio
-import numpy as np
 import matplotlib.pyplot as plt
 from deepface import DeepFace
-from PIL import Image
 from transformers import pipeline
 from collections import defaultdict
 import whisper
-from transformers import AutoModel, AutoTokenizer
 from PIL import Image
 from moviepy import VideoFileClip
 
@@ -179,7 +175,7 @@ async def main():
     print(text)
     sentiment = await SD.get_emotion_from_text(text)
     print(sentiment)
-
+"""
 SD = SentimentDetector()
 results1 = SD.detect_faces_and_get_emotion_with_plots("./frames/00001.mp4_frame_6307.jpg")
 print("Image 1 Average Sentiment:", results1)
