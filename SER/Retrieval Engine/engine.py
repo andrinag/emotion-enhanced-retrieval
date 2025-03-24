@@ -1,3 +1,4 @@
+from exceptiongroup import catch
 from fastapi import FastAPI
 import torch
 from PIL import Image
@@ -241,16 +242,19 @@ def process_frame(frame_info, object_id):
         )
         embedding_id = cursor.fetchone()[0]
         conn.commit()
-        emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
+        try:
+            emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
+            cursor.execute(
+                """
+                INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
+                VALUES (%s, %s, %s, %s, %s);
+                """,
+                (embedding_id, emotion, confidence, emotion, annotated_path)
+            )
+            conn.commit()
+        except:
+            print(" could not open frame")
 
-        cursor.execute(
-            """
-            INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
-            VALUES (%s, %s, %s, %s, %s);
-            """,
-            (embedding_id, emotion, confidence, emotion, annotated_path)
-        )
-        conn.commit()
     except Exception as e:
         print("Error processing frame:", traceback.format_exc())
         conn.rollback()
