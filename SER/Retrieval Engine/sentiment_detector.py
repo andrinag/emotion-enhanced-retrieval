@@ -33,7 +33,7 @@ class SentimentDetector:
         video.close()
 
     @staticmethod
-    async def get_text_from_mp3(audio_file):
+    def get_text_from_mp3(audio_file):
         model = whisper.load_model("tiny")  # "tiny" or "small" to avoid memory issues, change on node
         result = model.transcribe(audio_file)
 
@@ -42,7 +42,7 @@ class SentimentDetector:
         else:
             return None
 
-    async def get_emotion_from_text(self, text:str):
+    def get_emotion_from_text(self, text:str):
         emotion = self.emotion_text_classifier(text) # output: [{'label': 'joy', 'score': 0.9887555241584778}]
         return emotion
 
@@ -53,7 +53,7 @@ class SentimentDetector:
         confidence = predictions[0]["score"]
         return top_emotion, confidence"""
 
-    async def get_emotion_for_image2(self, image):
+    def get_emotion_for_image2(self, image):
         predictions = self.pipe2(image)
         top_emotion = predictions[0]["label"]
         confidence = predictions[0]["score"]

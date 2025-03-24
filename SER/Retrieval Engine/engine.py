@@ -160,13 +160,13 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
 def extract_frames(video_path, output_folder, msb_file):
     """
-    extract frame per mastershot boundary. takes the middle part.
+    Extract frame per mastershot boundary (middle frame), and extract MP3 audio clips for start and end.
     """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
     try:
-        boundaries = pd.read_csv(msb_file, sep="\t")  # in tsv files \t is the seperator
+        boundaries = pd.read_csv(msb_file, sep="\t")
     except Exception as e:
         print(f"Error reading boundary file {msb_file}: {e}")
         return []
@@ -179,6 +179,7 @@ def extract_frames(video_path, output_folder, msb_file):
         return []
 
     frame_paths = []
+    audio_files = []
 
     for index, row in boundaries.iterrows():
         start_frame = int(row['startframe'])
@@ -186,20 +187,29 @@ def extract_frames(video_path, output_folder, msb_file):
         start_time = row['starttime']
         end_time = row['endtime']
 
-        # because we take the middle point of the segment of the msb
         middle_frame = (start_frame + end_frame) // 2
         middle_time = (start_time + end_time) / 2
-        cap.set(cv2.CAP_PROP_POS_FRAMES, middle_frame) # sets it to the middle point
+        cap.set(cv2.CAP_PROP_POS_FRAMES, middle_frame)
         success, image = cap.read()
-        if not success:
-            print(f"Warning: Could not extract frame {middle_frame} from {video_path}")
+
+        if not success or image is None:
+            print(f"Could not extract frame {middle_frame} from {video_path}")
             continue
+
         frame_filename = os.path.join(output_folder, f"{os.path.basename(video_path)}_frame_{middle_frame}.jpg")
         cv2.imwrite(frame_filename, image)
         frame_paths.append((frame_filename, middle_time, middle_frame))
+        base_name = os.path.splitext(os.path.basename(video_path))[0]
+        audio_filename = os.path.join("./mp3", f"{base_name}_msb_{index}.mp3")
+        audio_files.append(audio_filename)
+        try:
+            SD.convert_mp4_to_mp3(video_path, audio_filename, start_time=start_time, end_time=end_time)
+            print(f"Saved audio: {audio_filename}")
+        except Exception as audio_error:
+            print(f"Failed to convert audio for {video_path} msb {index}: {audio_error}")
 
     cap.release()
-    return frame_paths
+    return frame_paths, audio_files
 
 
 def insert_video_metadata(video_filename):
@@ -219,7 +229,7 @@ def insert_video_metadata(video_filename):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def process_frame(frame_info, object_id):
+def process_frame(frame_info, object_id, audio_file):
     """
     processes a single video frame and calls the embedding calculation method
     """
@@ -252,6 +262,18 @@ def process_frame(frame_info, object_id):
                 (embedding_id, emotion, confidence, emotion, annotated_path)
             )
             conn.commit()
+
+            audio_text = SD.get_text_from_mp3(audio_file)
+            sentiment_result = SD.get_emotion_from_text(audio_text)
+            top_emotion = sentiment_result[0]['label']
+            confidence = sentiment_result[0]['score']
+            sentiment_category = SD.get_sentiment_from_emotion(top_emotion)
+            cursor.execute("""
+                INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (embedding_id, audio_text, top_emotion, confidence, sentiment_category))
+            conn.commit()
+
         except:
             print(" could not open frame")
 
@@ -295,9 +317,9 @@ async def process_videos(files: list[UploadFile] = File(...)):
                 print(f"Skipping {video_filename}: No boundary file found ({boundary_file})")
                 continue
 
-            frame_data = extract_frames(video_path, FRAME_STORAGE, boundary_file)
+            frame_data, audio_list = extract_frames(video_path, FRAME_STORAGE, boundary_file)
             with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                executor.map(lambda f: process_frame(f, object_id), frame_data)
+                executor.map(lambda args: process_frame(*args),zip(frame_data, [object_id] * len(frame_data), audio_list))
 
         return {"message": f"Uploaded and processed {len(files)} videos successfully"}
 
