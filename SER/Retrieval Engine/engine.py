@@ -231,54 +231,81 @@ def insert_video_metadata(video_filename):
 
 def process_frame(frame_info, object_id, audio_file):
     """
-    processes a single video frame and calls the embedding calculation method
+    Processes a single video frame: extracts embeddings, detects emotion, stores in DB,
+    and analyzes audio sentiment.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         frame_path, frame_time, middle_frame = frame_info
-        image = Image.open(frame_path).convert("RGB")
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format="PNG")
-        embedding = get_embedding(input_image=img_byte_arr.getvalue()) # calls the methods that uses CLIP
-        embedding = normalize_embedding(embedding)
 
-        cursor.execute(
-            """
-            INSERT INTO multimedia_embeddings (object_id, frame, frame_time, embedding)
-            VALUES (%s, %s, %s, %s) RETURNING id;
-            """,
-            (object_id, int(middle_frame), float(frame_time), embedding.tolist())
-        )
-        embedding_id = cursor.fetchone()[0]
-        conn.commit()
+        # -------- IMAGE EMBEDDING --------
         try:
-            emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
+            image = Image.open(frame_path).convert("RGB")
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format="PNG")
+            embedding = get_embedding(input_image=img_byte_arr.getvalue())
+            embedding = normalize_embedding(embedding)
+
             cursor.execute(
                 """
-                INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
-                VALUES (%s, %s, %s, %s, %s);
+                INSERT INTO multimedia_embeddings (object_id, frame, frame_time, embedding)
+                VALUES (%s, %s, %s, %s) RETURNING id;
                 """,
-                (embedding_id, emotion, confidence, emotion, annotated_path)
+                (object_id, int(middle_frame), float(frame_time), embedding.tolist())
             )
+            embedding_id = cursor.fetchone()[0]
             conn.commit()
+        except Exception as e:
+            print(f"[ERROR] Failed to process image or insert embedding for frame: {frame_path}")
+            print(traceback.format_exc())
+            conn.rollback()
+            return
 
-            audio_text = SD.get_text_from_mp3(audio_file)
-            sentiment_result = SD.get_emotion_from_text(audio_text)
-            top_emotion = sentiment_result[0]['label']
-            confidence = sentiment_result[0]['score']
-            sentiment_category = SD.get_sentiment_from_emotion(top_emotion)
-            cursor.execute("""
-                INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment)
-                VALUES (%s, %s, %s, %s, %s);
-            """, (embedding_id, audio_text, top_emotion, confidence, sentiment_category))
-            conn.commit()
+        # -------- FACE & EMOTION DETECTION --------
+        try:
+            emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
+            if emotion and confidence:
+                cursor.execute(
+                    """
+                    INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
+                    VALUES (%s, %s, %s, %s, %s);
+                    """,
+                    (embedding_id, emotion, confidence, sentiment, annotated_path)
+                )
+                conn.commit()
+        except Exception as e:
+            print(f"[WARNING] Could not detect or insert face/emotion info for: {frame_path}")
+            print(traceback.format_exc())
+            conn.rollback()
 
-        except:
-            print(" could not open frame")
+        # -------- AUDIO ANALYSIS --------
+        try:
+            if audio_file and os.path.exists(audio_file):
+                audio_text = SD.get_text_from_mp3(audio_file)
+                if audio_text:
+                    sentiment_result = SD.get_emotion_from_text(audio_text)
+                    top_emotion = sentiment_result[0]['label']
+                    audio_confidence = sentiment_result[0]['score']
+                    sentiment_category = SD.get_sentiment_from_emotion(top_emotion)
+
+                    cursor.execute("""
+                        INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment)
+                        VALUES (%s, %s, %s, %s, %s);
+                    """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category))
+                    conn.commit()
+                else:
+                    print(f"[WARNING] No transcribed text for audio file: {audio_file}")
+            else:
+                print(f"[WARNING] Audio file not found or not provided: {audio_file}")
+        except Exception as e:
+            print(f"[ERROR] Audio sentiment analysis or DB insert failed for: {audio_file}")
+            print(traceback.format_exc())
+            conn.rollback()
 
     except Exception as e:
-        print("Error processing frame:", traceback.format_exc())
+        print("[FATAL ERROR] Unexpected failure in process_frame()")
+        print(traceback.format_exc())
         conn.rollback()
     finally:
         cursor.close()
