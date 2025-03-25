@@ -88,10 +88,6 @@ class SentimentDetector:
             print("No faces detected")
             return "no_face", 0.0, "neutral", None
 
-        if not faces:
-            print("No faces detected")
-            return None, None, None, None
-
         emotion_scores = defaultdict(float)
         total_confidence = 0
         total_faces = 0
@@ -113,12 +109,16 @@ class SentimentDetector:
                         2)
 
         # Save the annotated image
-        annotated_path = os.path.join(faces_dir, f"annotated_{os.path.basename(file_path)}")
-        plt.figure(figsize=(10, 5))
-        plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        plt.axis("off")
-        plt.savefig(annotated_path)
-        plt.close()  # Close figure to free memory
+        try:
+            annotated_path = os.path.join(faces_dir, f"annotated_{os.path.basename(file_path)}")
+            plt.figure(figsize=(10, 5))
+            plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            plt.axis("off")
+            plt.savefig(annotated_path)
+            plt.close()  # Close figure to free memory
+        except Exception as e:
+            print(f"[WARNING] Failed to save or render annotated image for {file_path}: {e}")
+            annotated_path = None
 
         print(f"Annotated face image saved at: {annotated_path}")
 
