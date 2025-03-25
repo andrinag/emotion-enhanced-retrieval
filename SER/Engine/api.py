@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import numpy as np
 from decimal import Decimal
+from fastapi.staticfiles import StaticFiles
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -33,6 +34,7 @@ if not os.path.exists(FRAME_STORAGE):
 
 app = FastAPI()
 app.mount("/media/V3C/V3C1/video-480p/", StaticFiles(directory="/media/V3C/V3C1/video-480p/"), name="videos")
+app.mount("/faces", StaticFiles(directory="./faces"), name="faces")
 #locally
 # app.mount("/videos", StaticFiles(directory="./videos"), name="videos")
 
@@ -115,8 +117,6 @@ async def video_endpoint(subfolder: str, video_name: str, range: str = Header(No
             "Accept-Ranges": "bytes",
         }
         return Response(data, status_code=200, headers=headers, media_type="video/mp4")
-
-
 
 ################## IMAGE TO IMAGE SEARCH #################################################
 @app.post("/search_image_to_image/")
@@ -204,11 +204,13 @@ async def search_images(request: Request, query: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
 @app.get("/search_combined/{query}/{sentiment}")
 async def search_images(request: Request, query: str, sentiment: str):
     """
-    Hybrid search combining CLIP similarity and sentiment match in Face or ASR table.
+    Hybrid search combining CLIP similarity and sentiment match in Face or ASR table,
+    now also returning the annotated image path (if available).
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
 
@@ -231,7 +233,8 @@ async def search_images(request: Request, query: str, sentiment: str):
              CASE
                 WHEN f.sentiment = %s OR a.sentiment = %s THEN 1.0
                 ELSE 0.0
-             END * 0.5) AS final_score
+             END * 0.5) AS final_score,
+            f.path_annotated_faces
         FROM multimedia_embeddings me
         JOIN multimedia_objects mo ON mo.object_id = me.object_id
         LEFT JOIN Face f ON f.embedding_id = me.id
@@ -239,8 +242,8 @@ async def search_images(request: Request, query: str, sentiment: str):
         ORDER BY final_score DESC
         LIMIT 10;
         """, (
-            query_embedding.tolist(), sentiment, sentiment,  # for similarity + sentiment check
-            query_embedding.tolist(), sentiment, sentiment  # for score calculation
+            query_embedding.tolist(), sentiment, sentiment,
+            query_embedding.tolist(), sentiment, sentiment
         ))
 
         result = cursor.fetchall()
@@ -251,7 +254,7 @@ async def search_images(request: Request, query: str, sentiment: str):
 
         response = []
         for row in result:
-            location, frame_time, similarity, sentiment_match, final_score = row
+            location, frame_time, similarity, sentiment_match, final_score, annotated_path = row
             full_path = os.path.join(dir_1, location)
             if os.path.exists(full_path):
                 response.append({
@@ -259,7 +262,8 @@ async def search_images(request: Request, query: str, sentiment: str):
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
-                    "final_score": round(float(final_score), 3)
+                    "final_score": round(float(final_score), 3),
+                    "annotated_image": annotated_path if annotated_path else None
                 })
 
         return JSONResponse(response)
@@ -267,8 +271,6 @@ async def search_images(request: Request, query: str, sentiment: str):
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
-
-
 @app.get("/")
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", context={"request": request})

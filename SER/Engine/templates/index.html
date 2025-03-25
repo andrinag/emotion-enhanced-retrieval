@@ -54,7 +54,7 @@
     <div id="videoContainer"></div>
 
     <script>
-    function renderResults(data) {
+        function renderResults(data) {
         const videoContainer = document.getElementById("videoContainer");
         videoContainer.innerHTML = "";
 
@@ -73,38 +73,25 @@
                 });
 
                 const info = document.createElement("p");
-                info.textContent = `Similarity: ${video.similarity}`;
+                info.textContent = `Similarity: ${video.similarity} | Score: ${video.final_score || 'N/A'} | Sentiment Match: ${video.sentiment_match ?? 'N/A'}`;
 
                 videoCard.appendChild(videoPlayer);
                 videoCard.appendChild(info);
+
+                if (video.annotated_image) {
+                    const img = document.createElement("img");
+                    img.src = video.annotated_image;
+                    img.alt = "Annotated Face";
+                    img.style.width = "100%";
+                    img.style.marginTop = "10px";
+                    videoCard.appendChild(img);
+                }
+
                 videoContainer.appendChild(videoCard);
             });
         } else {
             alert("No videos found for this query.");
         }
-    }
-
-    function searchVideo() {
-        const query = document.getElementById("searchQuery").value;
-        fetch(`/search/${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(renderResults)
-            .catch(error => console.error("Error fetching video:", error));
-    }
-
-    function searchQueryAndSentiment() {
-        const query = document.getElementById("searchQuery").value;
-        const sentiment = document.getElementById("sentimentSelect").value;
-
-        if (!query || !sentiment) {
-            alert("Please enter both a query and select a sentiment.");
-            return;
-        }
-
-        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
-            .then(response => response.json())
-            .then(renderResults)
-            .catch(error => console.error("Error fetching video:", error));
     }
     </script>
 </body>
