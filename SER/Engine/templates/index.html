@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multimedia Retrieval Engine</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #videoContainer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .video-card {
+            width: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        video {
+            width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multimedia Retrieval Engine</h1>
+
+    <div id="controls">
+        <input type="text" id="searchQuery" placeholder="Enter your search query" />
+
+        <select id="sentimentSelect">
+            <option value="">Any Sentiment</option>
+            <option value="happy">Happy</option>
+            <option value="sad">Sad</option>
+            <option value="angry">Angry</option>
+            <option value="neutral">Neutral</option>
+            <option value="surprise">Surprise</option>
+            <option value="fear">Fear</option>
+            <option value="disgust">Disgust</option>
+        </select>
+
+        <button onclick="searchVideo()">Search Query</button>
+        <button onclick="searchQueryAndSentiment()">Search Query + Sentiment</button>
+    </div>
+
+    <div id="videoContainer"></div>
+
+    <script>
+    function renderResults(data) {
+        const videoContainer = document.getElementById("videoContainer");
+        videoContainer.innerHTML = "";
+
+        if (Array.isArray(data) && data.length > 0) {
+            data.forEach(video => {
+                const videoCard = document.createElement("div");
+                videoCard.className = "video-card";
+
+                const videoPlayer = document.createElement("video");
+                videoPlayer.controls = true;
+                videoPlayer.src = `/video?path=${encodeURIComponent(video.video_path)}&start_time=${video.frame_time}`;
+                videoPlayer.load();
+
+                videoPlayer.addEventListener("loadedmetadata", function () {
+                    videoPlayer.currentTime = video.frame_time;
+                });
+
+                const info = document.createElement("p");
+                info.textContent = `Similarity: ${video.similarity}`;
+
+                videoCard.appendChild(videoPlayer);
+                videoCard.appendChild(info);
+                videoContainer.appendChild(videoCard);
+            });
+        } else {
+            alert("No videos found for this query.");
+        }
+    }
+
+    function searchVideo() {
+        const query = document.getElementById("searchQuery").value;
+        fetch(`/search/${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(renderResults)
+            .catch(error => console.error("Error fetching video:", error));
+    }
+
+    function searchQueryAndSentiment() {
+        const query = document.getElementById("searchQuery").value;
+        const sentiment = document.getElementById("sentimentSelect").value;
+
+        if (!query || !sentiment) {
+            alert("Please enter both a query and select a sentiment.");
+            return;
+        }
+
+        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+            .then(response => response.json())
+            .then(renderResults)
+            .catch(error => console.error("Error fetching video:", error));
+    }
+    </script>
+</body>
+</html>
