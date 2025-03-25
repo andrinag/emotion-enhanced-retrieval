@@ -86,7 +86,7 @@ class SentimentDetector:
             face = img_rgb[y1:y2, x1:x2]
             face_pil = Image.fromarray(face)
 
-            emotion, confidence = asyncio.run(self.get_emotion_for_image2(face_pil))
+            emotion, confidence = self.get_emotion_for_image2(face_pil)
             emotion_scores[emotion] += confidence
             total_confidence += confidence
             total_faces += 1
