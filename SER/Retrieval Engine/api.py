@@ -256,7 +256,7 @@ async def search_images(request: Request, query: str, sentiment: str):
             if os.path.exists(full_path):
                 response.append({
                     "video_path": full_path,
-                    "frame_time": frame_time,
+                    "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": sentiment_match,
                     "final_score": round(float(final_score), 3)
