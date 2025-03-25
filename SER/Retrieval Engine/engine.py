@@ -266,6 +266,7 @@ def process_frame(frame_info, object_id, audio_file):
         try:
             emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
             if emotion and confidence:
+                # Insert detected face normally
                 cursor.execute(
                     """
                     INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
@@ -273,7 +274,16 @@ def process_frame(frame_info, object_id, audio_file):
                     """,
                     (embedding_id, emotion, confidence, sentiment, annotated_path)
                 )
-                conn.commit()
+            else:
+                # Insert placeholder if no emotion found
+                cursor.execute(
+                    """
+                    INSERT INTO Face (embedding_id, emotion, confidence, sentiment, path_annotated_faces)
+                    VALUES (%s, %s, %s, %s, %s);
+                    """,
+                    (embedding_id, "no_face", 0.0, "neutral", None)
+                )
+            conn.commit()
         except Exception as e:
             print(f"[WARNING] Could not detect or insert face/emotion info for: {frame_path}")
             print(traceback.format_exc())
@@ -285,17 +295,26 @@ def process_frame(frame_info, object_id, audio_file):
                 audio_text = SD.get_text_from_mp3(audio_file)
                 if audio_text:
                     sentiment_result = SD.get_emotion_from_text(audio_text)
-                    top_emotion = sentiment_result[0]['label']
-                    audio_confidence = sentiment_result[0]['score']
-                    sentiment_category = SD.get_sentiment_from_emotion(top_emotion)
-
-                    cursor.execute("""
-                        INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment)
-                        VALUES (%s, %s, %s, %s, %s);
-                    """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category))
-                    conn.commit()
+                    if sentiment_result and isinstance(sentiment_result, list) and len(sentiment_result) > 0:
+                        top_emotion = sentiment_result[0]['label']
+                        audio_confidence = sentiment_result[0]['score']
+                        sentiment_category = SD.get_sentiment_from_emotion(top_emotion)
+                    else:
+                        top_emotion = "unknown"
+                        audio_confidence = 0.0
+                        sentiment_category = "neutral"
                 else:
-                    print(f"[WARNING] No transcribed text for audio file: {audio_file}")
+                    audio_text = None
+                    top_emotion = "no_transcription"
+                    audio_confidence = 0.0
+                    sentiment_category = "neutral"
+
+                # Always insert something
+                cursor.execute("""
+                    INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment)
+                    VALUES (%s, %s, %s, %s, %s);
+                """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category))
+                conn.commit()
             else:
                 print(f"[WARNING] Audio file not found or not provided: {audio_file}")
         except Exception as e:
