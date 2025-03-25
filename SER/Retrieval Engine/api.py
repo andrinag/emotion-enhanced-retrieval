@@ -15,6 +15,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import numpy as np
+from decimal import Decimal
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -256,9 +257,9 @@ async def search_images(request: Request, query: str, sentiment: str):
                 response.append({
                     "video_path": full_path,
                     "frame_time": frame_time,
-                    "similarity": round(similarity, 3),
+                    "similarity": round(float(similarity), 3),
                     "sentiment_match": sentiment_match,
-                    "final_score": round(final_score, 3)
+                    "final_score": round(float(final_score), 3)
                 })
 
         return JSONResponse(response)
