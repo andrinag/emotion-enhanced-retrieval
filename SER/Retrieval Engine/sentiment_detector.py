@@ -175,7 +175,6 @@ async def main():
     print(text)
     sentiment = await SD.get_emotion_from_text(text)
     print(sentiment)
-"""
 SD = SentimentDetector()
 results1 = SD.detect_faces_and_get_emotion_with_plots("./frames/00001.mp4_frame_6307.jpg")
 print("Image 1 Average Sentiment:", results1)
