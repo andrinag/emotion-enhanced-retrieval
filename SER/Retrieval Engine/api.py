@@ -205,6 +205,58 @@ async def search_images(request: Request, query: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
+@app.get("/search/{query}/{sentiment")
+async def search_images(request: Request, query: str, sentiment):
+    """
+    Search for videos related to the query and return the video path.
+    TODO: make normalization of the result values for text to image
+    """
+    dir_1 = "/media/V3C/V3C1/video-480p/"
+    try:
+        cursor = conn.cursor()
+        query_embedding = get_embedding(input_text=query)
+        query_embedding = normalize_embedding(query_embedding)
+        print(query_embedding[-10:])
+
+        # Cosine comparison for the similarity
+        cursor.execute("""
+        SELECT 
+            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+            me.frame_time,
+            1 - (me.embedding <=> %s::vector) AS similarity
+        FROM multimedia_embeddings me
+        ORDER BY similarity DESC
+        LIMIT 5; 
+        """, (query_embedding.tolist(),))
+
+        result = cursor.fetchall()
+        cursor.close()
+
+        if not result:
+            return JSONResponse({"message": "No video found"}, status_code=404)
+
+        response = []
+        for row in result:
+            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
+            if os.path.exists(dir_1 + row[0]):
+                final_path = dir_1 + row[0]
+            response = [
+                {
+                    "video_path": final_path,
+                    "frame_time": row[1],
+                    "similarity": row[2]
+                }
+                for row in result
+            ]
+            print(response)
+            return JSONResponse(response)
+        else:
+            return JSONResponse({"message": "No video found"}, status_code=404)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", context={"request": request})

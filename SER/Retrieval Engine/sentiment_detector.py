@@ -62,14 +62,31 @@ class SentimentDetector:
     def detect_faces_and_get_emotion_with_plots(self, file_path):
         if not os.path.exists(file_path):
             print("File path doesn't exist")
-            return None, None, None, None
+            return "no_face", 0.0, "neutral", None
 
         faces_dir = "./faces"
-        os.makedirs(faces_dir, exist_ok=True)  # Ensure the faces directory exists
+        os.makedirs(faces_dir, exist_ok=True)
 
         img = cv2.imread(file_path)
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        faces = DeepFace.extract_faces(file_path, detector_backend="retinaface", enforce_detection=False)
+        if img is None:
+            print(f"[ERROR] Could not read image: {file_path}")
+            return "no_face", 0.0, "neutral", None
+
+        try:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        except Exception as e:
+            print(f"[ERROR] cvtColor failed: {e}")
+            return "no_face", 0.0, "neutral", None
+
+        try:
+            faces = DeepFace.extract_faces(file_path, detector_backend="retinaface", enforce_detection=False)
+        except Exception as e:
+            print(f"[ERROR] DeepFace failed on {file_path}: {e}")
+            return "no_face", 0.0, "neutral", None
+
+        if not faces:
+            print("No faces detected")
+            return "no_face", 0.0, "neutral", None
 
         if not faces:
             print("No faces detected")
