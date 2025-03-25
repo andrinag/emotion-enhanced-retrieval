@@ -258,7 +258,7 @@ async def search_images(request: Request, query: str, sentiment: str):
                     "video_path": full_path,
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
-                    "sentiment_match": sentiment_match,
+                    "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3)
                 })
 
