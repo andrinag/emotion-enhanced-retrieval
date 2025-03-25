@@ -5,17 +5,23 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            padding: 20px;
         }
-        #controls {
+        h1, h2 {
+            font-weight: 500;
+        }
+        #controls, #sentimentControls {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
-        #videoContainer {
+        .section {
+            margin-bottom: 40px;
+        }
+        .results-grid {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            margin-top: 20px;
         }
         .video-card {
             width: 300px;
@@ -28,81 +34,85 @@
             width: 100%;
             height: auto;
         }
+        img {
+            width: 100%;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
+
     <h1>Multimedia Retrieval Engine</h1>
 
-    <div id="controls">
-        <input type="text" id="searchQuery" placeholder="Enter your search query" />
-
-        <select id="sentimentSelect">
-            <option value="any">Any Sentiment</option>
-            <option value="happy">Happy</option>
-            <option value="sad">Sad</option>
-            <option value="angry">Angry</option>
-            <option value="neutral">Neutral</option>
-            <option value="surprise">Surprise</option>
-            <option value="fear">Fear</option>
-            <option value="disgust">Disgust</option>
-        </select>
-
-
-        <button onclick="searchVideo()">Search Query</button>
-        <button onclick="searchQueryAndSentiment()">Search Query + Sentiment</button>
+    <!-- 🔍 TEXT-ONLY SEARCH SECTION -->
+    <div class="section">
+        <h2>Search by Text</h2>
+        <div id="controls">
+            <input type="text" id="searchQuery" placeholder="Enter your search query" />
+            <button onclick="searchVideo()">Search Query</button>
+        </div>
+        <div id="textResults" class="results-grid"></div>
     </div>
 
-    <div id="videoContainer"></div>
+    <!-- 🎯 TEXT + SENTIMENT SEARCH SECTION -->
+    <div class="section">
+        <h2>Search by Text + Sentiment (Face Detection)</h2>
+        <div id="sentimentControls">
+            <input type="text" id="sentimentQuery" placeholder="Enter your search query (or leave empty)" />
+            <select id="sentimentSelect">
+                <option value="happy">Happy</option>
+                <option value="sad">Sad</option>
+                <option value="angry">Angry</option>
+                <option value="neutral">Neutral</option>
+                <option value="surprise">Surprise</option>
+                <option value="fear">Fear</option>
+                <option value="disgust">Disgust</option>
+            </select>
+            <button onclick="searchQueryAndSentiment()">Search Query + Sentiment</button>
+        </div>
+        <div id="sentimentResults" class="results-grid"></div>
+    </div>
 
     <script>
-    function renderResults(data) {
-        const videoContainer = document.getElementById("videoContainer");
-        videoContainer.innerHTML = "";
+    function renderResults(data, containerId, showAnnotatedOnly = false) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
 
-        if (Array.isArray(data) && data.length > 0) {
-            data.forEach(video => {
-                const videoCard = document.createElement("div");
-                videoCard.className = "video-card";
-
-                const videoPlayer = document.createElement("video");
-                videoPlayer.controls = true;
-                videoPlayer.src = `/video?path=${encodeURIComponent(video.video_path)}&start_time=${video.frame_time}`;
-                videoPlayer.load();
-
-                videoPlayer.addEventListener("loadedmetadata", function () {
-                    videoPlayer.currentTime = video.frame_time;
-                });
-
-                const info = document.createElement("p");
-                info.textContent = `Similarity: ${video.similarity} | Score: ${video.final_score || 'N/A'} | Sentiment Match: ${video.sentiment_match ?? 'N/A'}`;
-
-                videoCard.appendChild(videoPlayer);
-                videoCard.appendChild(info);
-
-                if (video.annotated_image) {
-                    const img = document.createElement("img");
-                    img.src = video.annotated_image;
-                    img.alt = "Annotated Face";
-                    img.style.width = "100%";
-                    img.style.marginTop = "10px";
-                    videoCard.appendChild(img);
-                }
-
-                videoContainer.appendChild(videoCard);
-            });
-        } else {
-            alert("No videos found for this query.");
+        if (!Array.isArray(data) || data.length === 0) {
+            container.innerHTML = "<p>No results found.</p>";
+            return;
         }
-    }
 
-    function searchQueryAndSentiment() {
-        const query = document.getElementById("searchQuery").value || "none";
-        const sentiment = document.getElementById("sentimentSelect").value || "any";
+        data.forEach(video => {
+            const card = document.createElement("div");
+            card.className = "video-card";
 
-        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
-            .then(response => response.json())
-            .then(renderResults)
-            .catch(error => console.error("Error fetching video:", error));
+            const videoPlayer = document.createElement("video");
+            videoPlayer.controls = true;
+            videoPlayer.src = `/video?path=${encodeURIComponent(video.video_path)}&start_time=${video.frame_time}`;
+            videoPlayer.load();
+
+            videoPlayer.addEventListener("loadedmetadata", () => {
+                videoPlayer.currentTime = video.frame_time;
+            });
+
+            const info = document.createElement("p");
+            info.textContent = `Similarity: ${video.similarity} | Score: ${video.final_score ?? "N/A"} | Sentiment Match: ${video.sentiment_match ?? "N/A"}`;
+            card.appendChild(videoPlayer);
+            card.appendChild(info);
+
+            if (video.annotated_image) {
+                const img = document.createElement("img");
+                img.src = video.annotated_image;
+                img.alt = "Annotated Face";
+                card.appendChild(img);
+            } else if (showAnnotatedOnly) {
+                return; // Skip if no annotated face image
+            }
+
+            container.appendChild(card);
+        });
     }
 
     function searchVideo() {
@@ -111,10 +121,21 @@
             alert("Please enter a query.");
             return;
         }
+
         fetch(`/search/${encodeURIComponent(query)}`)
             .then(response => response.json())
-            .then(renderResults)
-            .catch(error => console.error("Error fetching video:", error));
+            .then(data => renderResults(data, "textResults"))
+            .catch(error => console.error("Text search failed:", error));
+    }
+
+    function searchQueryAndSentiment() {
+        const query = document.getElementById("sentimentQuery").value.trim() || "none";
+        const sentiment = document.getElementById("sentimentSelect").value;
+
+        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+            .then(response => response.json())
+            .then(data => renderResults(data, "sentimentResults", true))
+            .catch(error => console.error("Sentiment search failed:", error));
     }
     </script>
 </body>
