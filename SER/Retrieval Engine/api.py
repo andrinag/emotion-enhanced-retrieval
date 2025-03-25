@@ -1,4 +1,5 @@
 import os
+import traceback
 from http.client import HTTPException
 import cv2
 from fastapi import FastAPI, UploadFile, File, Response, Header, Request, HTTPException
@@ -158,7 +159,6 @@ async def search_images(request: Request, query: str):
     TODO: make normalization of the result values for text to image
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
-    dir_2 = "/media/V3C/V3C2/video-480p/"
     try:
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
@@ -187,16 +187,14 @@ async def search_images(request: Request, query: str):
             print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
             if os.path.exists(dir_1 + row[0]):
                 final_path = dir_1 + row[0]
-            else:
-                final_path = dir_2 + row[0]
-            response = [
-                {
-                    "video_path": final_path,
-                    "frame_time": row[1],
-                    "similarity": row[2]
-                }
-                for row in result
-            ]
+                response = [
+                    {
+                        "video_path": final_path,
+                        "frame_time": row[1],
+                        "similarity": row[2]
+                    }
+                    for row in result
+                ]
             print(response)
             return JSONResponse(response)
         else:
@@ -206,29 +204,43 @@ async def search_images(request: Request, query: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
-@app.get("/search/{query}/{sentiment")
-async def search_images(request: Request, query: str, sentiment):
+@app.get("/search/{query}/{sentiment}")
+async def search_images(request: Request, query: str, sentiment: str):
     """
-    Search for videos related to the query and return the video path.
-    TODO: make normalization of the result values for text to image
+    Hybrid search combining CLIP similarity and sentiment match in Face or ASR table.
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
+
     try:
         cursor = conn.cursor()
+
         query_embedding = get_embedding(input_text=query)
         query_embedding = normalize_embedding(query_embedding)
-        print(query_embedding[-10:])
 
-        # Cosine comparison for the similarity
         cursor.execute("""
         SELECT 
-            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+            mo.location,
             me.frame_time,
-            1 - (me.embedding <=> %s::vector) AS similarity
+            1 - (me.embedding <=> %s::vector) AS similarity,
+            CASE
+                WHEN f.sentiment = %s OR a.sentiment = %s THEN 1.0
+                ELSE 0.0
+            END AS sentiment_match,
+            ((1 - (me.embedding <=> %s::vector)) * 0.5 + 
+             CASE
+                WHEN f.sentiment = %s OR a.sentiment = %s THEN 1.0
+                ELSE 0.0
+             END * 0.5) AS final_score
         FROM multimedia_embeddings me
-        ORDER BY similarity DESC
-        LIMIT 5; 
-        """, (query_embedding.tolist(),))
+        JOIN multimedia_objects mo ON mo.object_id = me.object_id
+        LEFT JOIN Face f ON f.embedding_id = me.id
+        LEFT JOIN ASR a ON a.embedding_id = me.id
+        ORDER BY final_score DESC
+        LIMIT 10;
+        """, (
+            query_embedding.tolist(), sentiment, sentiment,  # for similarity + sentiment check
+            query_embedding.tolist(), sentiment, sentiment  # for score calculation
+        ))
 
         result = cursor.fetchall()
         cursor.close()
@@ -238,24 +250,23 @@ async def search_images(request: Request, query: str, sentiment):
 
         response = []
         for row in result:
-            print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
-            if os.path.exists(dir_1 + row[0]):
-                final_path = dir_1 + row[0]
-            response = [
-                {
-                    "video_path": final_path,
-                    "frame_time": row[1],
-                    "similarity": row[2]
-                }
-                for row in result
-            ]
-            print(response)
-            return JSONResponse(response)
-        else:
-            return JSONResponse({"message": "No video found"}, status_code=404)
+            location, frame_time, similarity, sentiment_match, final_score = row
+            full_path = os.path.join(dir_1, location)
+            if os.path.exists(full_path):
+                response.append({
+                    "video_path": full_path,
+                    "frame_time": frame_time,
+                    "similarity": round(similarity, 3),
+                    "sentiment_match": sentiment_match,
+                    "final_score": round(final_score, 3)
+                })
+
+        return JSONResponse(response)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 
 @app.get("/")
 async def read_root(request: Request):
