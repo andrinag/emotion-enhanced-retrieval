@@ -204,7 +204,7 @@ async def search_images(request: Request, query: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
-@app.get("/search/{query}/{sentiment}")
+@app.get("/search_combined/{query}/{sentiment}")
 async def search_images(request: Request, query: str, sentiment: str):
     """
     Hybrid search combining CLIP similarity and sentiment match in Face or ASR table.
