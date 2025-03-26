@@ -179,7 +179,10 @@ class SentimentDetector:
             "angry": "negative",
             "neutral": "neutral",
             "disgust": "negative",
-            "fear": "negative"
+            "fear": "negative",
+            "anger": "negative",
+            "joy": "positive",
+            "sadness": "negative"
         }
         return emotion_to_sentiment.get(emotion.lower(), "neutral")
 
