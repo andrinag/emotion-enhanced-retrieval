@@ -207,10 +207,13 @@ async def search_images(request: Request, query: str):
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
 @app.get("/search_combined/{query}/{sentiment}")
-async def search_images_combined(request: Request, query: str, sentiment: str):
+async def search_images(request: Request, query: str, sentiment: str):
     """
     Hybrid search combining CLIP similarity and sentiment match in Face table.
-    Filters to only include entries with annotated face images when sentiment is provided.
+    Supports:
+        - Only sentiment
+        - Only query
+        - Query + sentiment
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
@@ -219,7 +222,7 @@ async def search_images_combined(request: Request, query: str, sentiment: str):
         sentiment_filter = sentiment.lower() if sentiment != "any" else None
         query_filter = query.lower() if query != "none" else None
 
-
+        # If only sentiment is provided
         if not query_filter and sentiment_filter:
             cursor.execute("""
                 SELECT 
@@ -231,11 +234,12 @@ async def search_images_combined(request: Request, query: str, sentiment: str):
                     f.path_annotated_faces
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                JOIN Face f ON f.embedding_id = me.id
-                WHERE f.sentiment = %s AND f.path_annotated_faces IS NOT NULL
+                LEFT JOIN Face f ON f.embedding_id = me.id
+                WHERE f.sentiment = %s
                 LIMIT 10;
             """, (sentiment_filter,))
 
+        # If only query is provided
         elif query_filter and not sentiment_filter:
             query_embedding = get_embedding(input_text=query_filter)
             query_embedding = normalize_embedding(query_embedding)
@@ -255,7 +259,7 @@ async def search_images_combined(request: Request, query: str, sentiment: str):
                 LIMIT 10;
             """, (query_embedding.tolist(), query_embedding.tolist()))
 
-
+        # Query + Sentiment (combined)
         else:
             query_embedding = get_embedding(input_text=query_filter)
             query_embedding = normalize_embedding(query_embedding)
@@ -277,14 +281,12 @@ async def search_images_combined(request: Request, query: str, sentiment: str):
                     f.path_annotated_faces
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                JOIN Face f ON f.embedding_id = me.id
-                WHERE f.sentiment = %s AND f.path_annotated_faces IS NOT NULL
+                LEFT JOIN Face f ON f.embedding_id = me.id
                 ORDER BY final_score DESC
                 LIMIT 10;
             """, (
                 query_embedding.tolist(), sentiment_filter,
-                query_embedding.tolist(), sentiment_filter,
-                sentiment_filter
+                query_embedding.tolist(), sentiment_filter
             ))
 
         result = cursor.fetchall()
@@ -304,7 +306,7 @@ async def search_images_combined(request: Request, query: str, sentiment: str):
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
-                    "annotated_image": annotated_path
+                    "annotated_image": annotated_path if annotated_path else None
                 })
 
         return JSONResponse(response)
