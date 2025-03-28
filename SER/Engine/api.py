@@ -43,7 +43,7 @@ app.mount("/faces", StaticFiles(directory="./faces"), name="faces")
 conn = psycopg2.connect(
     dbname="multimedia_db",
     user="test",
-    host="localhost",
+    host="10.34.64.139",
     password="123",
     port="5432"
 )
@@ -207,87 +207,58 @@ async def search_images(request: Request, query: str):
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
 @app.get("/search_combined/{query}/{sentiment}")
-async def search_images(request: Request, query: str, sentiment: str):
+async def search_combined(query: str, sentiment: str):
     """
-    Hybrid search combining CLIP similarity and sentiment match in Face table.
-    Supports:
-        - Only sentiment
-        - Only query
-        - Query + sentiment
+    Hybrid search that:
+    1. Finds top-N embeddings most similar to the query
+    2. Filters them to those with matching face sentiment (if available)
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
 
     try:
-        sentiment_filter = sentiment.lower() if sentiment != "any" else None
-        query_filter = query.lower() if query != "none" else None
+        sentiment_filter = sentiment.lower()
+        query_filter = query.lower()
 
-        # If only sentiment is provided
-        if not query_filter and sentiment_filter:
-            cursor.execute("""
+        # Generate and normalize query embedding
+        query_embedding = get_embedding(input_text=query_filter)
+        query_embedding = normalize_embedding(query_embedding)
+
+        # SQL: First get top 100 by similarity, then filter for sentiment
+        cursor.execute("""
+            WITH top_matches AS (
                 SELECT 
+                    me.id,
                     mo.location,
                     me.frame_time,
-                    0.0 AS similarity,
-                    1.0 AS sentiment_match,
-                    0.5 AS final_score,
-                    f.path_annotated_faces
+                    1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                LEFT JOIN Face f ON f.embedding_id = me.id
-                WHERE f.sentiment = %s
-                LIMIT 10;
-            """, (sentiment_filter,))
+                ORDER BY similarity DESC
+                LIMIT 100
+            )
+            SELECT 
+                tm.location,
+                tm.frame_time,
+                tm.similarity,
+                CASE
+                    WHEN f.sentiment = %s THEN 1.0
+                    ELSE 0.0
+                END AS sentiment_match,
+                ((tm.similarity * 0.5) + 
+                 CASE
+                    WHEN f.sentiment = %s THEN 1.0
+                    ELSE 0.0
+                 END * 0.5) AS final_score,
+                f.path_annotated_faces,
+                f.emotion,
+                f.confidence
+            FROM top_matches tm
+            LEFT JOIN Face f ON f.embedding_id = tm.id
+            ORDER BY final_score DESC
+            LIMIT 10;
+        """, (query_embedding.tolist(), sentiment_filter, sentiment_filter))
 
-        # If only query is provided
-        elif query_filter and not sentiment_filter:
-            query_embedding = get_embedding(input_text=query_filter)
-            query_embedding = normalize_embedding(query_embedding)
-
-            cursor.execute("""
-                SELECT 
-                    mo.location,
-                    me.frame_time,
-                    1 - (me.embedding <=> %s::vector) AS similarity,
-                    0.0 AS sentiment_match,
-                    (1 - (me.embedding <=> %s::vector)) * 0.5 AS final_score,
-                    f.path_annotated_faces
-                FROM multimedia_embeddings me
-                JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                LEFT JOIN Face f ON f.embedding_id = me.id
-                ORDER BY final_score DESC
-                LIMIT 10;
-            """, (query_embedding.tolist(), query_embedding.tolist()))
-
-        # Query + Sentiment (combined)
-        else:
-            query_embedding = get_embedding(input_text=query_filter)
-            query_embedding = normalize_embedding(query_embedding)
-
-            cursor.execute("""
-                SELECT 
-                    mo.location,
-                    me.frame_time,
-                    1 - (me.embedding <=> %s::vector) AS similarity,
-                    CASE
-                        WHEN f.sentiment = %s THEN 1.0
-                        ELSE 0.0
-                    END AS sentiment_match,
-                    ((1 - (me.embedding <=> %s::vector)) * 0.5 + 
-                     CASE
-                        WHEN f.sentiment = %s THEN 1.0
-                        ELSE 0.0
-                     END * 0.5) AS final_score,
-                    f.path_annotated_faces
-                FROM multimedia_embeddings me
-                JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                LEFT JOIN Face f ON f.embedding_id = me.id
-                ORDER BY final_score DESC
-                LIMIT 10;
-            """, (
-                query_embedding.tolist(), sentiment_filter,
-                query_embedding.tolist(), sentiment_filter
-            ))
 
         result = cursor.fetchall()
         cursor.close()
@@ -297,7 +268,7 @@ async def search_images(request: Request, query: str, sentiment: str):
 
         response = []
         for row in result:
-            location, frame_time, similarity, sentiment_match, final_score, annotated_path = row
+            location, frame_time, similarity, sentiment_match, final_score, annotated_path, emotion, confidence = row
             full_path = os.path.join(dir_1, location)
             if os.path.exists(full_path):
                 response.append({
@@ -306,7 +277,9 @@ async def search_images(request: Request, query: str, sentiment: str):
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
-                    "annotated_image": annotated_path if annotated_path else None
+                    "annotated_image": annotated_path if annotated_path else None,
+                    "face_emotion": emotion,
+                    "face_confidence": round(float(confidence), 3) if confidence is not None else None
                 })
 
         return JSONResponse(response)
@@ -314,6 +287,7 @@ async def search_images(request: Request, query: str, sentiment: str):
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 
 @app.get("/")
