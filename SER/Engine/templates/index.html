@@ -23,12 +23,10 @@
             flex-wrap: wrap;
             gap: 20px;
         }
-        .video-card {
-            width: 300px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+        .video-card p {
+            margin: 6px 0 0 0;
+            font-size: 0.9em;
+            color: #555;
         }
         video {
             width: 100%;
@@ -105,9 +103,16 @@
                 img.src = video.annotated_image;
                 img.alt = "Annotated Face";
                 card.appendChild(img);
+
+                if (video.face_emotion && video.face_confidence !== null) {
+                    const faceInfo = document.createElement("p");
+                    faceInfo.textContent = `Detected emotion: ${video.face_emotion} (Confidence: ${video.face_confidence})`;
+                    card.appendChild(faceInfo);
+                }
             } else if (showAnnotatedOnly) {
                 return; // Skip if no annotated face image
             }
+
 
             container.appendChild(card);
         });
