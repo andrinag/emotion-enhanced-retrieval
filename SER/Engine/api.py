@@ -211,7 +211,9 @@ async def search_combined(query: str, sentiment: str):
     """
     Hybrid search that:
     1. Finds top-N embeddings most similar to the query
-    2. Filters them to those with matching face sentiment (if available)
+    2. Joins with all Face entries
+    3. Computes a combined score using similarity and emotion confidence
+    4. Returns top results where emotion matches the provided sentiment
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
@@ -220,11 +222,11 @@ async def search_combined(query: str, sentiment: str):
         sentiment_filter = sentiment.lower()
         query_filter = query.lower()
 
-        # Generate and normalize query embedding
+        # 1. Generate and normalize embedding from the query
         query_embedding = get_embedding(input_text=query_filter)
         query_embedding = normalize_embedding(query_embedding)
 
-        # SQL: First get top 100 by similarity, then filter for sentiment
+        # 2. Execute the combined SQL query
         cursor.execute("""
             WITH top_embeddings AS (
                 SELECT 
@@ -250,17 +252,24 @@ async def search_combined(query: str, sentiment: str):
                         WHEN LOWER(f.emotion) = LOWER(%s) THEN 1.0
                         ELSE 0.0
                     END AS emotion_match,
-                    -- Weighted score combining similarity and emotion confidence
                     ((te.similarity * 0.5) + (f.confidence * 0.5)) AS combined_score
                 FROM top_embeddings te
                 JOIN Face f ON f.embedding_id = te.embedding_id
             )
-            SELECT *
+            SELECT 
+                location,
+                frame_time,
+                similarity,
+                emotion_match,
+                combined_score,
+                path_annotated_faces,
+                emotion,
+                confidence
             FROM scored_faces
+            WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
             LIMIT 10;
-        """, (query_embedding.tolist(), sentiment_filter, sentiment_filter))
-
+        """, (query_embedding.tolist(), sentiment_filter))
 
         result = cursor.fetchall()
         cursor.close()
@@ -270,8 +279,19 @@ async def search_combined(query: str, sentiment: str):
 
         response = []
         for row in result:
-            location, frame_time, similarity, sentiment_match, final_score, annotated_path, emotion, confidence = row
+            (
+                location,
+                frame_time,
+                similarity,
+                sentiment_match,
+                final_score,
+                annotated_path,
+                emotion,
+                confidence
+            ) = row
+
             full_path = os.path.join(dir_1, location)
+
             if os.path.exists(full_path):
                 response.append({
                     "video_path": full_path,
@@ -289,6 +309,7 @@ async def search_combined(query: str, sentiment: str):
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 
 
