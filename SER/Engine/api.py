@@ -226,36 +226,38 @@ async def search_combined(query: str, sentiment: str):
 
         # SQL: First get top 100 by similarity, then filter for sentiment
         cursor.execute("""
-            WITH top_matches AS (
+            WITH top_embeddings AS (
                 SELECT 
-                    me.id,
+                    me.id AS embedding_id,
                     mo.location,
                     me.frame_time,
                     1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 100
+                LIMIT 50
+            ),
+            scored_faces AS (
+                SELECT 
+                    te.embedding_id,
+                    te.location,
+                    te.frame_time,
+                    te.similarity,
+                    f.emotion,
+                    f.confidence,
+                    f.path_annotated_faces,
+                    CASE
+                        WHEN LOWER(f.emotion) = LOWER(%s) THEN 1.0
+                        ELSE 0.0
+                    END AS emotion_match,
+                    -- Weighted score combining similarity and emotion confidence
+                    ((te.similarity * 0.5) + (f.confidence * 0.5)) AS combined_score
+                FROM top_embeddings te
+                JOIN Face f ON f.embedding_id = te.embedding_id
             )
-            SELECT 
-                tm.location,
-                tm.frame_time,
-                tm.similarity,
-                CASE
-                    WHEN f.sentiment = %s THEN 1.0
-                    ELSE 0.0
-                END AS sentiment_match,
-                ((tm.similarity * 0.5) + 
-                 CASE
-                    WHEN f.sentiment = %s THEN 1.0
-                    ELSE 0.0
-                 END * 0.5) AS final_score,
-                f.path_annotated_faces,
-                f.emotion,
-                f.confidence
-            FROM top_matches tm
-            LEFT JOIN Face f ON f.embedding_id = tm.id
-            ORDER BY final_score DESC
+            SELECT *
+            FROM scored_faces
+            ORDER BY combined_score DESC
             LIMIT 10;
         """, (query_embedding.tolist(), sentiment_filter, sentiment_filter))
 
