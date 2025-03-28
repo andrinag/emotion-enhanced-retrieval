@@ -207,7 +207,7 @@ async def search_images(request: Request, query: str):
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
 @app.get("/search_combined/{query}/{sentiment}")
-async def search_images(request: Request, query: str, sentiment: str):
+async def search_images_combined(request: Request, query: str, sentiment: str):
     """
     Hybrid search combining CLIP similarity and sentiment match in Face table.
     Filters to only include entries with annotated face images when sentiment is provided.
