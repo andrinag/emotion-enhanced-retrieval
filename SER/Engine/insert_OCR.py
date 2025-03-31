@@ -116,8 +116,9 @@ def insert_ocr(json_path):
                 annotated_path,
                 x, y, w, h
             ))
+            conn.commit()
+            print(f"Inserted embedding for {embedding_id} - done.")
 
-    conn.commit()
 
 def draw_all_detections_on_image(image_path, detections):
     try:
