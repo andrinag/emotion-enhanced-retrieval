@@ -18,14 +18,13 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 
 def insert_ocr(json_path):
-    tsv_base_path = Path("V3C1_msb/msb")
+    tsv_base_path = Path("/home/ubuntu/V3C1_msb/msb")
     SD = SentimentDetector()
     tsv_cache = {}
     object_id_cache = {}
     embedding_id_cache = {}
 
     def get_frame_from_tsv(video_id, row_index):
-        row_index = row_index
         if video_id not in tsv_cache:
             tsv_path = tsv_base_path / f"{video_id}.tsv"
             if not tsv_path.exists():
@@ -47,11 +46,11 @@ def insert_ocr(json_path):
                 continue
             try:
                 entry = json.loads(line)
+                for det in entry.get("detections", []):
+                    image_name = det.get("image", "")
+                    image_detections[image_name].append(det)
             except json.JSONDecodeError:
                 continue
-            for det in entry.get("detections", []):
-                image_name = det.get("image", "")
-                image_detections[image_name].append(det)
 
     for image_name, detections in image_detections.items():
         match = re.match(r"v_(\d+)_(\d+)\.jpg", image_name)
@@ -60,7 +59,6 @@ def insert_ocr(json_path):
 
         video_id, row_index_str = match.groups()
         row_index = int(row_index_str)
-
         frame = get_frame_from_tsv(video_id, row_index)
         if frame is None:
             continue
@@ -94,25 +92,6 @@ def insert_ocr(json_path):
             w = det.get("w")
             h = det.get("h")
 
-            # Fallback to relative
-            if x is None or y is None or w is None or h is None:
-                relX = det.get("relX", 0.0)
-                relY = det.get("relY", 0.0)
-                relW = det.get("relW", 0.0)
-                relH = det.get("relH", 0.0)
-                image = cv2.imread(image_path)
-                if image is not None:
-                    height, width = image.shape[:2]
-                    x = relX * width
-                    y = relY * height
-                    w = relW * width
-                    h = relH * height
-                else:
-                    continue
-
-            x1, y1 = float(x), float(y)
-            x2, y2 = float(x + w), float(y + h)
-
             sentiment_result = SD.get_emotion_from_text(text)
             if sentiment_result and isinstance(sentiment_result, list) and len(sentiment_result) > 0:
                 top_emotion = sentiment_result[0]['label']
@@ -139,13 +118,12 @@ def insert_ocr(json_path):
             ))
 
     conn.commit()
-    print(f"Inserted OCR from {json_path}")
 
 def draw_all_detections_on_image(image_path, detections):
     try:
         image = cv2.imread(image_path)
         if image is None:
-            print(f"[WARN] Image not found: {image_path}")
+            print(f" Image not found: {image_path}")
             return image_path
 
         height, width = image.shape[:2]
@@ -195,7 +173,7 @@ def draw_all_detections_on_image(image_path, detections):
         print(out_path)
         return out_path
     except Exception as e:
-        print(f"[ERROR] Failed drawing on {image_path}: {e}")
+        print(f"Failed drawing on {image_path}: {e}")
         return image_path
 
 
@@ -212,7 +190,7 @@ def get_location_for_frame(embedding_id):
         result = cursor.fetchone()
         return result[0] if result else None
     except Exception as e:
-        print(f"[ERROR] Could not get frame location for {embedding_id}: {e}")
+        print(f"Could not get frame location for {embedding_id}: {e}")
 
 
 if __name__ == "__main__":
