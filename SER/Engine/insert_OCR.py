@@ -141,10 +141,7 @@ def insert_ocr(json_path):
     conn.commit()
     print(f"Inserted OCR from {json_path}")
 
-
-
 def draw_all_detections_on_image(image_path, detections):
-    # TODO method currently does not work, rectangle is drawn at the completely wrong location and is also too small!
     try:
         image = cv2.imread(image_path)
         if image is None:
@@ -155,28 +152,37 @@ def draw_all_detections_on_image(image_path, detections):
 
         for det in detections:
             text = det.get("text", "")
+
+            # Prefer absolute pixel values
             x = det.get("x")
             y = det.get("y")
             w = det.get("w")
             h = det.get("h")
 
-            if x is None or y is None or w is None or h is None:
+            if x is None or y is None or w is None or h is None or w <= 1 or h <= 1:
+                # Fallback to relative center
                 relX = det.get("relX", 0.0)
                 relY = det.get("relY", 0.0)
                 relW = det.get("relW", 0.0)
                 relH = det.get("relH", 0.0)
-                x = relX * width
-                y = relY * height
+                x_center = relX * width
+                y_center = relY * height
                 w = relW * width
                 h = relH * height
+                x = x_center - w / 2
+                y = y_center - h / 2
 
             x1 = int(x)
             y1 = int(y)
             x2 = int(x + w)
             y2 = int(y + h)
 
-            x1, x2 = sorted((max(0, x1), min(width - 1, x2)))
-            y1, y2 = sorted((max(0, y1), min(height - 1, y2)))
+            x1 = max(0, min(x1, width - 1))
+            x2 = max(0, min(x2, width - 1))
+            y1 = max(0, min(y1, height - 1))
+            y2 = max(0, min(y2, height - 1))
+
+            print(f"Text '{text}' drawn at ({x1},{y1}) -> ({x2},{y2})")
 
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(image, text, (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
@@ -188,7 +194,6 @@ def draw_all_detections_on_image(image_path, detections):
         cv2.imwrite(out_path, image)
         print(out_path)
         return out_path
-
     except Exception as e:
         print(f"[ERROR] Failed drawing on {image_path}: {e}")
         return image_path
