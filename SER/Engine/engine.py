@@ -248,11 +248,8 @@ def process_frame(frame_info, object_id, audio_file):
             embedding = normalize_embedding(embedding)
 
             cursor.execute(
-                """
-                INSERT INTO multimedia_embeddings (object_id, frame, frame_time, embedding)
-                VALUES (%s, %s, %s, %s) RETURNING id;
-                """,
-                (object_id, int(middle_frame), float(frame_time), embedding.tolist())
+                "INSERT INTO multimedia_embeddings (object_id, frame_location, frame, frame_time, embedding) VALUES (%s, %s, %s, %s, %s);",
+                (object_id, frame_path, int(middle_frame), float(frame_time), embedding.tolist())
             )
             embedding_id = cursor.fetchone()[0]
             conn.commit()
