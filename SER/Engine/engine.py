@@ -248,11 +248,13 @@ def process_frame(frame_info, object_id, audio_file):
             embedding = normalize_embedding(embedding)
 
             cursor.execute(
-                "INSERT INTO multimedia_embeddings (object_id, frame_location, frame, frame_time, embedding) VALUES (%s, %s, %s, %s, %s);",
+                """
+                INSERT INTO multimedia_embeddings (object_id, frame_location, frame, frame_time, embedding)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id;
+                """,
                 (object_id, frame_path, int(middle_frame), float(frame_time), embedding.tolist())
             )
             embedding_id = cursor.fetchone()[0]
-            conn.commit()
         except Exception as e:
             print(f"[ERROR] Failed to process image or insert embedding for frame: {frame_path}")
             print(traceback.format_exc())
