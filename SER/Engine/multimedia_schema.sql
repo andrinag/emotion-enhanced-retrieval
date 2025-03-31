@@ -8,6 +8,7 @@ id SERIAL PRIMARY KEY,
 object_id INTEGER,
 frame INTEGER,
 frame_time FLOAT,
+frame_location VARCHAR(255),
 embedding vector(512),
 FOREIGN KEY(object_id) REFERENCES multimedia_objects(object_id)
 );
@@ -15,14 +16,16 @@ FOREIGN KEY(object_id) REFERENCES multimedia_objects(object_id)
 CREATE TABLE OCR (
 id SERIAL PRIMARY KEY,
 embedding_id INTEGER,
+text VARCHAR(50000),
 emotion VARCHAR(30),
-confidence FLOAT,
+ocr_confidence FLOAT,
+sentiment_confidence FLOAT,
 sentiment VARCHAR(30),
 path_annotated_location VARCHAR(255),
-y_axis1 FLOAT,
-x_axis1 FLOAT,
-y_axis2 FLOAT,
-x_axis2 FLOAT,
+x FLOAT,
+y FLOAT,
+w FLOAT,
+h FLOAT,
 FOREIGN KEY (embedding_id) REFERENCES multimedia_embeddings(id)
 );
 
