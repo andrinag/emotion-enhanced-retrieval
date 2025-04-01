@@ -13,13 +13,13 @@ conn = psycopg2.connect(
     user="test",
     password="123",
     host="localhost",
-    port=5433
+    port=5432
 )
 cursor = conn.cursor()
 
 def insert_ocr(json_path):
     tsv_base_path = Path("/home/ubuntu/V3C1_msb/msb")
-    tsv_base_path = Path("./V3C1_msb/msb")
+    # tsv_base_path = Path("./V3C1_msb/msb") local
     SD = SentimentDetector()
     tsv_cache = {}
     object_id_cache = {}
