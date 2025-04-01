@@ -134,27 +134,30 @@
             card.appendChild(videoPlayer);
             card.appendChild(info);
 
-            if (video.annotated_image || video.ocr_annotated_image) {
+            const hasImage = video.annotated_image || video.ocr_annotated_image;
+            const emotionType = video.face_emotion || video.ocr_emotion || video.asr_emotion;
+            const confidenceVal = video.face_confidence || video.ocr_confidence || video.asr_confidence;
+
+            if (hasImage) {
                 const img = document.createElement("img");
                 img.src = video.annotated_image || video.ocr_annotated_image;
                 img.alt = "Annotated Visual";
                 card.appendChild(img);
+            }
+            if (emotionType && confidenceVal !== null) {
+                const emotionInfo = document.createElement("p");
+                emotionInfo.textContent = `Detected emotion: ${emotionType} (Confidence: ${confidenceVal})`;
+                card.appendChild(emotionInfo);
+            }
 
-                const emotionType = video.face_emotion || video.ocr_emotion || video.asr_emotion;
-                const confidenceVal = video.face_confidence || video.ocr_confidence || video.asr_confidence;
-
-                if (emotionType && confidenceVal !== null) {
-                    const emotionInfo = document.createElement("p");
-                    emotionInfo.textContent = `Detected emotion: ${emotionType} (Confidence: ${confidenceVal})`;
-                    card.appendChild(emotionInfo);
-                }
-            } else if (showAnnotatedOnly) {
-                return; // Skip if no annotated image
+            if (showAnnotatedOnly && !hasImage) {
+                return; // Skip if no image and flag is on
             }
 
             container.appendChild(card);
         });
     }
+
 
     function searchVideo() {
         const query = document.getElementById("searchQuery").value;
