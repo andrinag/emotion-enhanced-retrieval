@@ -196,6 +196,6 @@ def get_location_for_frame(embedding_id):
 
 if __name__ == "__main__":
     folder_path = "./OCR_V3C1"
-    ocr_files_list = get_ocr_list_from_folder(folder_path)[:1]
+    ocr_files_list = get_ocr_list_from_folder(folder_path)
     for ocr_json in ocr_files_list:
         insert_ocr(ocr_json)

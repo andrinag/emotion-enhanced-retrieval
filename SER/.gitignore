@@ -104,3 +104,12 @@ venv/
 __pycache__/
 *.mp3
 .idea
+OCR_V3C1/
+ocr_visualizations/
+V3C1_msb/
+videos/
+mp3/
+images/
+frames/
+faces/
+annotated_faces/
