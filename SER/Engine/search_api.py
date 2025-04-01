@@ -49,6 +49,8 @@ conn = psycopg2.connect(
 )
 register_vector(conn)
 
+dir_1 = "/media/V3C/V3C1/video-480p/"
+
 def normalize_embedding(embedding):
     """
     Brings the embeddings into a normalized form
@@ -215,7 +217,6 @@ async def search_combined_face(query: str, sentiment: str):
     3. Computes a combined score using similarity and emotion confidence
     4. Returns top results where emotion matches the provided sentiment
     """
-    dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
 
     try:
@@ -407,7 +408,7 @@ async def search_combined_asr(query: str, sentiment: str):
                     "asr_confidence": round(float(confidence), 3) if confidence is not None else None,
                     "asr_sentiment": sentiment_label
                 })
-
+        print(response)
         return JSONResponse(response)
 
     except Exception as e:
@@ -423,7 +424,6 @@ async def search_combined_ocr(query: str, sentiment: str):
     3. Computes a combined score using similarity and sentiment confidence
     4. Filters by OCR emotion match
     """
-    dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
 
     try:
@@ -523,6 +523,108 @@ async def search_combined_ocr(query: str, sentiment: str):
                     "ocr_confidence": round(float(ocr_conf), 3),
                     "bbox": {"x": x, "y": y, "w": w, "h": h}
                 })
+        return JSONResponse(response)
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/search_combined_all/{query}/{sentiment}")
+async def search_combined_all(query: str, sentiment: str):
+    """
+    Unified multimodal sentiment-aware search:
+    Uses the formula: 0.5 * embedding similarity + 0.5 * (2/8 * OCR + 3/8 * ASR + 3/8 * Face)
+    """
+    cursor = conn.cursor()
+    try:
+        query_embedding = get_embedding(input_text=query.lower())
+        query_embedding = normalize_embedding(query_embedding)
+
+        cursor.execute("""
+            WITH top_embeddings AS (
+                SELECT 
+                    me.id AS embedding_id,
+                    mo.location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity
+                FROM multimedia_embeddings me
+                JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                ORDER BY similarity DESC
+                LIMIT 200
+            ),
+            joined AS (
+                SELECT 
+                    te.embedding_id,
+                    te.location,
+                    te.frame_time,
+                    te.similarity,
+                    COALESCE(f.emotion, '') as face_emotion,
+                    COALESCE(f.confidence, 0.0) as face_confidence,
+                    COALESCE(a.emotion, '') as asr_emotion,
+                    COALESCE(a.confidence, 0.0) as asr_confidence,
+                    COALESCE(o.emotion, '') as ocr_emotion,
+                    COALESCE(o.sentiment_confidence, 0.0) as ocr_confidence,
+                    COALESCE(f.path_annotated_faces, '') as annotated_image,
+                    CASE
+                        WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0
+                    END AS face_match,
+                    CASE
+                        WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0
+                    END AS asr_match,
+                    CASE
+                        WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0
+                    END AS ocr_match
+                FROM top_embeddings te
+                LEFT JOIN Face f ON f.embedding_id = te.embedding_id
+                LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+            )
+            SELECT 
+                location,
+                frame_time,
+                similarity,
+                annotated_image,
+                face_emotion, face_confidence,
+                asr_emotion, asr_confidence,
+                ocr_emotion, ocr_confidence,
+                (0.5 * similarity + 0.5 * ((0.25 * ocr_confidence) + (0.375 * asr_confidence) + (0.375 * face_confidence))) AS combined_score
+            FROM joined
+            WHERE face_emotion = %s OR asr_emotion = %s OR ocr_emotion = %s
+            ORDER BY combined_score DESC
+            LIMIT 10;
+        """, (query_embedding.tolist(), sentiment, sentiment, sentiment, sentiment, sentiment))
+
+        result = cursor.fetchall()
+        cursor.close()
+
+        response = []
+        for row in result:
+            (
+                location, frame_time, similarity,
+                annotated_image,
+                face_emotion, face_confidence,
+                asr_emotion, asr_confidence,
+                ocr_emotion, ocr_confidence,
+                combined_score
+            ) = row
+
+            full_path = os.path.join(dir_1, location)
+            if os.path.exists(full_path):
+                response.append({
+                    "video_path": full_path,
+                    "frame_time": float(frame_time),
+                    "similarity": round(float(similarity), 3),
+                    "final_score": round(float(combined_score), 3),
+                    "annotated_image": annotated_image if annotated_image else None,
+                    "face_emotion": face_emotion,
+                    "face_confidence": round(float(face_confidence), 3),
+                    "asr_emotion": asr_emotion,
+                    "asr_confidence": round(float(asr_confidence), 3),
+                    "ocr_emotion": ocr_emotion,
+                    "ocr_confidence": round(float(ocr_confidence), 3)
+                })
+
         return JSONResponse(response)
 
     except Exception as e:

@@ -106,6 +106,24 @@
         <div id="ocrResults" class="results-grid"></div>
     </div>
 
+    <div class="section">
+        <h2>Combined Search (OCR + ASR + Face)</h2>
+        <div class="controls">
+            <input type="text" id="combinedQuery" placeholder="Enter your search query" />
+            <select id="combinedSentimentSelect">
+                <option value="happy">Happy</option>
+                <option value="sad">Sad</option>
+                <option value="angry">Angry</option>
+                <option value="neutral">Neutral</option>
+                <option value="surprise">Surprise</option>
+                <option value="fear">Fear</option>
+                <option value="disgust">Disgust</option>
+            </select>
+            <button onclick="searchCombinedSentiment()">Search Combined</button>
+        </div>
+        <div id="combinedResults" class="results-grid"></div>
+    </div>
+
     <script>
     function renderResults(data, containerId, showAnnotatedOnly = false) {
         const container = document.getElementById(containerId);
@@ -158,7 +176,6 @@
         });
     }
 
-
     function searchVideo() {
         const query = document.getElementById("searchQuery").value;
         if (!query) {
@@ -188,7 +205,7 @@
 
         fetch(`/search_combined_asr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
             .then(response => response.json())
-            .then(data => renderResults(data, "asrResults", true))
+            .then(data => renderResults(data, "asrResults", false))
             .catch(error => console.error("ASR sentiment search failed:", error));
     }
 
@@ -200,6 +217,16 @@
             .then(response => response.json())
             .then(data => renderResults(data, "ocrResults", true))
             .catch(error => console.error("OCR sentiment search failed:", error));
+    }
+
+    function searchCombinedSentiment() {
+        const query = document.getElementById("combinedQuery").value.trim() || "none";
+        const sentiment = document.getElementById("combinedSentimentSelect").value;
+
+        fetch(`/search_combined_all/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+            .then(response => response.json())
+            .then(data => renderResults(data, "combinedResults", false))
+            .catch(error => console.error("Combined sentiment search failed:", error));
     }
     </script>
 </body>
