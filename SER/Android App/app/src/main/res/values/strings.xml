@@ -1,3 +1,19 @@
 <resources>
-    <string name="app_name">My Application</string>
+    <string name="app_name">SER</string>
+    <string-array name="data_type_array">
+        <item>ocr</item>
+        <item>asr</item>
+        <item>face</item>
+    </string-array>
+
+    <string-array name="emotion_type_array">
+        <item>happy</item>
+        <item>sad</item>
+        <item>angry</item>
+        <item>neutral</item>
+        <item>suprise</item>
+        <item>fear</item>
+        <item>disgust</item>
+    </string-array>
+
 </resources>

@@ -20,6 +20,7 @@ import android.util.Base64
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.MediaController
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -33,6 +34,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
+import com.bumptech.glide.Glide
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -47,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var progressBarVideo: ProgressBar
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
+    private lateinit var spinnerDataType: android.widget.Spinner
+    private lateinit var spinnerSentiment: android.widget.Spinner
 
 
     /**
@@ -64,6 +68,11 @@ class MainActivity : AppCompatActivity() {
         simpleVideoView.setMediaController(mediaControls)
         cameraExecutor = Executors.newSingleThreadExecutor()
         progressBarVideo.visibility = View.GONE
+        spinnerDataType = findViewById(R.id.spinnerDataType)
+        spinnerSentiment = findViewById(R.id.spinnerSentiment)
+        val dataType = spinnerDataType.selectedItem.toString()
+        val emotion = spinnerSentiment.selectedItem.toString()
+
 
         if (allPermissionsGranted()) {
             startCameraStream()
@@ -72,14 +81,13 @@ class MainActivity : AppCompatActivity() {
                 Companion.REQUEST_CODE_PERMISSIONS
             )
         }
-
         buttonSearch.setOnClickListener {
             progressBarVideo.visibility = View.VISIBLE
             simpleVideoView.visibility = View.GONE
             val query = editTextQuery.text.toString().trim()
             if (query.isNotEmpty()) {
                 sendPostRequestSentimentQuery(this, query)
-                sendQueryRequest(this, query) { result ->
+                sendQueryRequestWithSentiment(this, query, dataType, emotion) { result ->
                     if (true) {
                         simpleVideoView.visibility = View.VISIBLE
                         Log.d("VOLLEY", "response: $result")
@@ -89,6 +97,83 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    fun sendQueryRequestWithSentiment(
+        context: android.content.Context,
+        query: String,
+        dataType: String,
+        emotion: String,
+        callback: (JSONArray) -> Unit
+    ) {
+        val url = "http://10.34.64.139:8001/search_combined_face/$query/$emotion"
+
+        val requestQueue: RequestQueue = Volley.newRequestQueue(context)
+
+        val stringRequest = StringRequest(
+            Request.Method.GET, url,
+            Response.Listener<String> { response ->
+                Log.i("VOLLEY", "Success! Response: $response")
+
+                try {
+                    val result = JSONArray(response)
+                    Log.d("VOLLEY", "Callback being executed with response: $result")
+                    callback(result)
+                    Log.i("VIDEO", "starting to play the video here")
+                    if (result.length() > 0) {
+                        val firstVideo = result.getJSONObject(0)
+                        val timeString = result.getJSONObject(0).getString("frame_time")
+                        var time: Double = 0.0
+                        try {
+                            time = timeString.toDouble()
+                        } catch (nfe: NumberFormatException) {
+                            Log.e("VIDEO", "Could not convert timeString to Float")
+                        }
+                        val videoPath = firstVideo.getString("video_path")
+                        val baseUrl = "http://10.34.64.139:8001"
+                        val videoUrl = "$baseUrl$videoPath"
+                        Log.d("VOLLEY", "Playing video from URL: $videoUrl")
+                        progressBarVideo.visibility = View.GONE
+                        (context as? MainActivity)?.playVideo(videoUrl, time)
+                        playVideo(videoUrl, time)
+                        val imagePath = firstVideo.optString("image_path", "")
+                        if (imagePath.isNotEmpty()) {
+                            val imageUrl = "http://10.34.64.139:8001$imagePath"
+                            val imageView = findViewById<ImageView>(R.id.imageAnnotation)
+                            imageView.visibility = View.VISIBLE
+
+                            Glide.with(this)
+                                .load(imageUrl)
+                                .placeholder(android.R.drawable.ic_menu_report_image)
+                                .into(imageView)
+                        }
+                    } else {
+                        Log.e("VOLLEY", "No videos found in response")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
+                }
+            },
+            { error ->
+                Log.e("VOLLEY", "Volley Error: ${error.message}")
+                progressBarVideo.visibility = View.GONE
+
+                if (error.networkResponse != null) {
+                    val statusCode = error.networkResponse.statusCode
+                    val responseBody = error.networkResponse.data?.let { String(it) }
+                    Log.e("VOLLEY", "HTTP Status Code: $statusCode")
+                    Log.e("VOLLEY", "Error Response Body: $responseBody")
+                }
+            })
+
+        stringRequest.retryPolicy = DefaultRetryPolicy(
+            100000,
+            DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+            DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+        )
+        progressBarVideo.visibility = View.VISIBLE
+        requestQueue.add(stringRequest)
     }
 
     fun sendQueryRequest(
