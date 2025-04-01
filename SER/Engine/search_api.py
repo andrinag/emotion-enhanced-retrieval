@@ -340,7 +340,7 @@ async def search_combined_asr(query: str, sentiment: str):
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 200
+                LIMIT 1000
             ),
             scored_asr AS (
                 SELECT 
@@ -375,6 +375,7 @@ async def search_combined_asr(query: str, sentiment: str):
         """, (query_embedding.tolist(), sentiment_filter))
 
         result = cursor.fetchall()
+        print(result)
         cursor.close()
 
         if not result:
@@ -440,7 +441,7 @@ async def search_combined_ocr(query: str, sentiment: str):
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 200
+                LIMIT 1000
             ),
             scored_ocr AS (
                 SELECT 
@@ -483,6 +484,7 @@ async def search_combined_ocr(query: str, sentiment: str):
         """, (query_embedding.tolist(), sentiment.lower()))
 
         result = cursor.fetchall()
+        print(result)
         cursor.close()
 
         if not result:
@@ -521,7 +523,6 @@ async def search_combined_ocr(query: str, sentiment: str):
                     "ocr_confidence": round(float(ocr_conf), 3),
                     "bbox": {"x": x, "y": y, "w": w, "h": h}
                 })
-
         return JSONResponse(response)
 
     except Exception as e:
