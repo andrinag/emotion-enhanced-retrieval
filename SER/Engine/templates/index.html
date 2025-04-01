@@ -176,7 +176,7 @@
         const query = document.getElementById("sentimentQuery").value.trim() || "none";
         const sentiment = document.getElementById("sentimentSelect").value;
 
-        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+        fetch(`/search_combined_face/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
             .then(response => response.json())
             .then(data => renderResults(data, "sentimentResults", true))
             .catch(error => console.error("Face sentiment search failed:", error));
