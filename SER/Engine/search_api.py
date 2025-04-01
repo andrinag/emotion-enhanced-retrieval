@@ -601,7 +601,9 @@ async def search_combined_all(query: str, sentiment: str):
         response = []
         for row in result:
             (
-                location, frame_time, similarity,
+                location,
+                frame_time,
+                similarity,
                 annotated_image,
                 face_emotion, face_confidence,
                 asr_emotion, asr_confidence,
