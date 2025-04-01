@@ -206,11 +206,11 @@ async def search_images(request: Request, query: str):
 
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
-@app.get("/search_combined/{query}/{sentiment}/")
-async def search_combined(query: str, sentiment: str):
+@app.get("/search_combined_face/{query}/{sentiment}/")
+async def search_combined_face(query: str, sentiment: str):
     """
     Hybrid search that:
-    1. Finds top-N embeddings most similar to the query
+    1. Finds top-200 embeddings most similar to the query
     2. Joins with all Face entries
     3. Computes a combined score using similarity and emotion confidence
     4. Returns top results where emotion matches the provided sentiment
@@ -237,7 +237,7 @@ async def search_combined(query: str, sentiment: str):
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 50
+                LIMIT 200
             ),
             scored_faces AS (
                 SELECT 
@@ -310,6 +310,223 @@ async def search_combined(query: str, sentiment: str):
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.get("/search_combined_asr/{query}/{sentiment}")
+async def search_combined_asr(query: str, sentiment: str):
+    """
+    Hybrid search using ASR (speech emotion):
+    1. Finds top-200 embeddings most similar to the query
+    2. Joins with ASR table
+    3. Computes a combined score using text similarity and ASR emotion confidence
+    4. Returns results where emotion matches the provided sentiment
+    """
+    dir_1 = "/media/V3C/V3C1/video-480p/"
+    cursor = conn.cursor()
+
+    try:
+        sentiment_filter = sentiment.lower()
+        query_filter = query.lower()
+
+        # Generate and normalize embedding from the query
+        query_embedding = get_embedding(input_text=query_filter)
+        query_embedding = normalize_embedding(query_embedding)
+
+        cursor.execute("""
+            WITH top_embeddings AS (
+                SELECT 
+                    me.id AS embedding_id,
+                    mo.location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity
+                FROM multimedia_embeddings me
+                JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                ORDER BY similarity DESC
+                LIMIT 200
+            ),
+            scored_asr AS (
+                SELECT 
+                    te.embedding_id,
+                    te.location,
+                    te.frame_time,
+                    te.similarity,
+                    a.emotion,
+                    a.confidence,
+                    a.sentiment,
+                    CASE
+                        WHEN LOWER(a.emotion) = LOWER(%s) THEN 1.0
+                        ELSE 0.0
+                    END AS emotion_match,
+                    ((te.similarity * 0.5) + (a.confidence * 0.5)) AS combined_score
+                FROM top_embeddings te
+                JOIN ASR a ON a.embedding_id = te.embedding_id
+            )
+            SELECT 
+                location,
+                frame_time,
+                similarity,
+                emotion_match,
+                combined_score,
+                emotion,
+                confidence,
+                sentiment
+            FROM scored_asr
+            WHERE emotion_match = 1.0
+            ORDER BY combined_score DESC
+            LIMIT 10;
+        """, (query_embedding.tolist(), sentiment_filter))
+
+        result = cursor.fetchall()
+        cursor.close()
+
+        if not result:
+            return JSONResponse({"message": "No video found"}, status_code=404)
+
+        response = []
+        for row in result:
+            (
+                location,
+                frame_time,
+                similarity,
+                sentiment_match,
+                final_score,
+                emotion,
+                confidence,
+                sentiment_label
+            ) = row
+
+            full_path = os.path.join(dir_1, location)
+
+            if os.path.exists(full_path):
+                response.append({
+                    "video_path": full_path,
+                    "frame_time": float(frame_time),
+                    "similarity": round(float(similarity), 3),
+                    "sentiment_match": float(sentiment_match),
+                    "final_score": round(float(final_score), 3),
+                    "asr_emotion": emotion,
+                    "asr_confidence": round(float(confidence), 3) if confidence is not None else None,
+                    "asr_sentiment": sentiment_label
+                })
+
+        return JSONResponse(response)
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/search_combined_ocr/{query}/{sentiment}")
+async def search_combined_ocr(query: str, sentiment: str):
+    """
+    Hybrid search using OCR data:
+    1. Finds top-N embeddings similar to the query
+    2. Joins with OCR table
+    3. Computes a combined score using similarity and sentiment confidence
+    4. Filters by OCR emotion match
+    """
+    dir_1 = "/media/V3C/V3C1/video-480p/"
+    cursor = conn.cursor()
+
+    try:
+        query_embedding = get_embedding(input_text=query.lower())
+        query_embedding = normalize_embedding(query_embedding)
+
+        # Step 1: Get top matches based on embedding similarity
+        cursor.execute("""
+            WITH top_embeddings AS (
+                SELECT 
+                    me.id AS embedding_id,
+                    mo.location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity
+                FROM multimedia_embeddings me
+                JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                ORDER BY similarity DESC
+                LIMIT 200
+            ),
+            scored_ocr AS (
+                SELECT 
+                    te.embedding_id,
+                    te.location,
+                    te.frame_time,
+                    te.similarity,
+                    o.emotion,
+                    o.sentiment,
+                    o.sentiment_confidence,
+                    o.ocr_confidence,
+                    o.path_annotated_location,
+                    o.text,
+                    o.x, o.y, o.w, o.h,
+                    CASE
+                        WHEN LOWER(o.emotion) = LOWER(%s) THEN 1.0
+                        ELSE 0.0
+                    END AS emotion_match,
+                    ((te.similarity * 0.5) + (o.sentiment_confidence * 0.5)) AS combined_score
+                FROM top_embeddings te
+                JOIN OCR o ON o.embedding_id = te.embedding_id
+            )
+            SELECT 
+                location,
+                frame_time,
+                similarity,
+                emotion_match,
+                combined_score,
+                path_annotated_location,
+                emotion,
+                sentiment_confidence,
+                ocr_confidence,
+                sentiment,
+                text,
+                x, y, w, h
+            FROM scored_ocr
+            WHERE emotion_match = 1.0
+            ORDER BY combined_score DESC
+            LIMIT 10;
+        """, (query_embedding.tolist(), sentiment.lower()))
+
+        result = cursor.fetchall()
+        cursor.close()
+
+        if not result:
+            return JSONResponse({"message": "No OCR results found"}, status_code=404)
+
+        response = []
+        for row in result:
+            (
+                location,
+                frame_time,
+                similarity,
+                sentiment_match,
+                final_score,
+                annotated_path,
+                emotion,
+                sentiment_conf,
+                ocr_conf,
+                sentiment_label,
+                ocr_text,
+                x, y, w, h
+            ) = row
+
+            full_path = os.path.join(dir_1, location)
+            if os.path.exists(full_path):
+                response.append({
+                    "video_path": full_path,
+                    "frame_time": float(frame_time),
+                    "similarity": round(float(similarity), 3),
+                    "sentiment_match": float(sentiment_match),
+                    "final_score": round(float(final_score), 3),
+                    "ocr_annotated_image": annotated_path,
+                    "ocr_text": ocr_text,
+                    "ocr_emotion": emotion,
+                    "ocr_sentiment": sentiment_label,
+                    "sentiment_confidence": round(float(sentiment_conf), 3),
+                    "ocr_confidence": round(float(ocr_conf), 3),
+                    "bbox": {"x": x, "y": y, "w": w, "h": h}
+                })
+
+        return JSONResponse(response)
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/")

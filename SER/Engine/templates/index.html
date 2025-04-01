@@ -10,7 +10,7 @@
         h1, h2 {
             font-weight: 500;
         }
-        #controls, #sentimentControls {
+        .controls {
             display: flex;
             gap: 10px;
             margin-bottom: 10px;
@@ -45,7 +45,7 @@
 
     <div class="section">
         <h2>Search by Text</h2>
-        <div id="controls">
+        <div class="controls">
             <input type="text" id="searchQuery" placeholder="Enter your search query" />
             <button onclick="searchVideo()">Search Query</button>
         </div>
@@ -54,7 +54,7 @@
 
     <div class="section">
         <h2>Search by Text + Sentiment (Face Detection)</h2>
-        <div id="sentimentControls">
+        <div class="controls">
             <input type="text" id="sentimentQuery" placeholder="Enter your search query (or leave empty)" />
             <select id="sentimentSelect">
                 <option value="happy">Happy</option>
@@ -65,9 +65,45 @@
                 <option value="fear">Fear</option>
                 <option value="disgust">Disgust</option>
             </select>
-            <button onclick="searchQueryAndSentiment()">Search Query + Sentiment</button>
+            <button onclick="searchFaceSentiment()">Search Face + Sentiment</button>
         </div>
         <div id="sentimentResults" class="results-grid"></div>
+    </div>
+
+    <div class="section">
+        <h2>Search by Text + Sentiment (ASR)</h2>
+        <div class="controls">
+            <input type="text" id="asrQuery" placeholder="Enter your search query" />
+            <select id="asrSentimentSelect">
+                <option value="happy">Happy</option>
+                <option value="sad">Sad</option>
+                <option value="angry">Angry</option>
+                <option value="neutral">Neutral</option>
+                <option value="surprise">Surprise</option>
+                <option value="fear">Fear</option>
+                <option value="disgust">Disgust</option>
+            </select>
+            <button onclick="searchAsrSentiment()">Search ASR + Sentiment</button>
+        </div>
+        <div id="asrResults" class="results-grid"></div>
+    </div>
+
+    <div class="section">
+        <h2>Search by Text + Sentiment (OCR)</h2>
+        <div class="controls">
+            <input type="text" id="ocrQuery" placeholder="Enter your search query" />
+            <select id="ocrSentimentSelect">
+                <option value="happy">Happy</option>
+                <option value="sad">Sad</option>
+                <option value="angry">Angry</option>
+                <option value="neutral">Neutral</option>
+                <option value="surprise">Surprise</option>
+                <option value="fear">Fear</option>
+                <option value="disgust">Disgust</option>
+            </select>
+            <button onclick="searchOcrSentiment()">Search OCR + Sentiment</button>
+        </div>
+        <div id="ocrResults" class="results-grid"></div>
     </div>
 
     <script>
@@ -98,21 +134,23 @@
             card.appendChild(videoPlayer);
             card.appendChild(info);
 
-            if (video.annotated_image) {
+            if (video.annotated_image || video.ocr_annotated_image) {
                 const img = document.createElement("img");
-                img.src = video.annotated_image;
-                img.alt = "Annotated Face";
+                img.src = video.annotated_image || video.ocr_annotated_image;
+                img.alt = "Annotated Visual";
                 card.appendChild(img);
 
-                if (video.face_emotion && video.face_confidence !== null) {
-                    const faceInfo = document.createElement("p");
-                    faceInfo.textContent = `Detected emotion: ${video.face_emotion} (Confidence: ${video.face_confidence})`;
-                    card.appendChild(faceInfo);
+                const emotionType = video.face_emotion || video.ocr_emotion || video.asr_emotion;
+                const confidenceVal = video.face_confidence || video.ocr_confidence || video.asr_confidence;
+
+                if (emotionType && confidenceVal !== null) {
+                    const emotionInfo = document.createElement("p");
+                    emotionInfo.textContent = `Detected emotion: ${emotionType} (Confidence: ${confidenceVal})`;
+                    card.appendChild(emotionInfo);
                 }
             } else if (showAnnotatedOnly) {
-                return; // Skip if no annotated face image
+                return; // Skip if no annotated image
             }
-
 
             container.appendChild(card);
         });
@@ -131,14 +169,34 @@
             .catch(error => console.error("Text search failed:", error));
     }
 
-    function searchQueryAndSentiment() {
+    function searchFaceSentiment() {
         const query = document.getElementById("sentimentQuery").value.trim() || "none";
         const sentiment = document.getElementById("sentimentSelect").value;
 
-        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}/`)
+        fetch(`/search_combined/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
             .then(response => response.json())
             .then(data => renderResults(data, "sentimentResults", true))
-            .catch(error => console.error("Sentiment search failed:", error));
+            .catch(error => console.error("Face sentiment search failed:", error));
+    }
+
+    function searchAsrSentiment() {
+        const query = document.getElementById("asrQuery").value.trim() || "none";
+        const sentiment = document.getElementById("asrSentimentSelect").value;
+
+        fetch(`/search_combined_asr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+            .then(response => response.json())
+            .then(data => renderResults(data, "asrResults", true))
+            .catch(error => console.error("ASR sentiment search failed:", error));
+    }
+
+    function searchOcrSentiment() {
+        const query = document.getElementById("ocrQuery").value.trim() || "none";
+        const sentiment = document.getElementById("ocrSentimentSelect").value;
+
+        fetch(`/search_combined_ocr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+            .then(response => response.json())
+            .then(data => renderResults(data, "ocrResults", true))
+            .catch(error => console.error("OCR sentiment search failed:", error));
     }
     </script>
 </body>
