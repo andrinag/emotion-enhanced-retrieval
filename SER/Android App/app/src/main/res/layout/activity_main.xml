@@ -26,7 +26,6 @@
         android:gravity="center"
         android:layout_marginBottom="10dp"/>
 
-    <!-- New Data Type + Sentiment Selection Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
