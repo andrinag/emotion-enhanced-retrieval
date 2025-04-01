@@ -117,7 +117,7 @@ def insert_ocr(json_path):
                 x, y, w, h
             ))
             conn.commit()
-            print(f"Inserted embedding for {embedding_id} - done.")
+            #print(f"Inserted embedding for {embedding_id} - done.")
 
 
 def draw_all_detections_on_image(image_path, detections):
@@ -161,7 +161,7 @@ def draw_all_detections_on_image(image_path, detections):
             y1 = max(0, min(y1, height - 1))
             y2 = max(0, min(y2, height - 1))
 
-            print(f"Text '{text}' drawn at ({x1},{y1}) -> ({x2},{y2})")
+            #print(f"Text '{text}' drawn at ({x1},{y1}) -> ({x2},{y2})")
 
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(image, text, (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
@@ -171,7 +171,7 @@ def draw_all_detections_on_image(image_path, detections):
         filename = os.path.basename(image_path)
         out_path = os.path.join(output_dir, filename)
         cv2.imwrite(out_path, image)
-        print(out_path)
+        # print(out_path)
         return out_path
     except Exception as e:
         print(f"Failed drawing on {image_path}: {e}")
@@ -198,4 +198,5 @@ if __name__ == "__main__":
     folder_path = "./OCR_V3C1"
     ocr_files_list = get_ocr_list_from_folder(folder_path)
     for ocr_json in ocr_files_list:
+        print(f"Currently working on: {ocr_json}")
         insert_ocr(ocr_json)
