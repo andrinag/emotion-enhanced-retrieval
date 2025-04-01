@@ -206,7 +206,7 @@ async def search_images(request: Request, query: str):
 
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
-@app.get("/search_combined/{query}/{sentiment}")
+@app.get("/search_combined/{query}/{sentiment}/")
 async def search_combined(query: str, sentiment: str):
     """
     Hybrid search that:
@@ -309,7 +309,6 @@ async def search_combined(query: str, sentiment: str):
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
-
 
 
 
