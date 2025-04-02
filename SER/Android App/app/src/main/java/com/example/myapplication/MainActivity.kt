@@ -19,6 +19,7 @@ import android.net.Uri
 import android.util.Base64
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.MediaController
@@ -51,6 +52,8 @@ class MainActivity : AppCompatActivity() {
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     private lateinit var spinnerDataType: android.widget.Spinner
     private lateinit var spinnerSentiment: android.widget.Spinner
+    private lateinit var checkboxAnnotation: CheckBox
+    private lateinit var imageView: ImageView
 
 
     /**
@@ -72,6 +75,8 @@ class MainActivity : AppCompatActivity() {
         spinnerSentiment = findViewById(R.id.spinnerSentiment)
         val dataType = spinnerDataType.selectedItem.toString()
         val emotion = spinnerSentiment.selectedItem.toString()
+        checkboxAnnotation = findViewById(R.id.checkboxShowAnnotation)
+        imageView = findViewById<ImageView>(R.id.imageAnnotation)
 
 
         if (allPermissionsGranted()) {
@@ -81,6 +86,10 @@ class MainActivity : AppCompatActivity() {
                 Companion.REQUEST_CODE_PERMISSIONS
             )
         }
+        checkboxAnnotation.setOnCheckedChangeListener { _, isChecked ->
+            imageView.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
         buttonSearch.setOnClickListener {
             progressBarVideo.visibility = View.VISIBLE
             simpleVideoView.visibility = View.GONE
@@ -140,8 +149,7 @@ class MainActivity : AppCompatActivity() {
                         if (imagePath.isNotEmpty()) {
                             val imageUrl = "http://10.34.64.139:8001/$imagePath"
                             Log.d("Image Path: ", imageUrl)
-                            val imageView = findViewById<ImageView>(R.id.imageAnnotation)
-                            imageView.visibility = View.VISIBLE
+                            imageView.visibility = if (checkboxAnnotation.isChecked) View.VISIBLE else View.GONE
 
                             Glide.with(this)
                                 .load(imageUrl)
