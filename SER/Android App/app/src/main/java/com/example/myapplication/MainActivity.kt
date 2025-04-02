@@ -136,9 +136,10 @@ class MainActivity : AppCompatActivity() {
                         progressBarVideo.visibility = View.GONE
                         (context as? MainActivity)?.playVideo(videoUrl, time)
                         playVideo(videoUrl, time)
-                        val imagePath = firstVideo.optString("image_path", "")
+                        val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {
-                            val imageUrl = "http://10.34.64.139:8001$imagePath"
+                            val imageUrl = "http://10.34.64.139:8001/$imagePath"
+                            Log.d("Image Path: ", imageUrl)
                             val imageView = findViewById<ImageView>(R.id.imageAnnotation)
                             imageView.visibility = View.VISIBLE
 
