@@ -11,9 +11,15 @@
         <item>sad</item>
         <item>angry</item>
         <item>neutral</item>
-        <item>suprise</item>
+        <item>surprise</item>
         <item>fear</item>
         <item>disgust</item>
     </string-array>
+
+    <string name="app_title">Emotion Enhanced Retrieval Engine</string>
+    <string name="app_explanation">
+        Enter your search query and choose the emotion.\nYou can specify where it should be detected: in faces, speech, or text.
+    </string>
+
 
 </resources>

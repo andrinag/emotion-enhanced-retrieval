@@ -15,17 +15,11 @@ import androidx.camera.view.PreviewView
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import java.util.concurrent.ExecutorService
-import android.net.Uri
 import android.util.Base64
-import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
-import android.widget.ImageView
-import android.widget.MediaController
-import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.VideoView
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -35,7 +29,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
-import com.bumptech.glide.Glide
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -45,15 +38,11 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var editTextQuery: EditText
     private lateinit var buttonSearch: Button
-    private lateinit var simpleVideoView: VideoView
-    lateinit var mediaControls: MediaController
     private lateinit var cameraExecutor: ExecutorService
-    private lateinit var progressBarVideo: ProgressBar
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     private lateinit var spinnerDataType: android.widget.Spinner
     private lateinit var spinnerSentiment: android.widget.Spinner
     private lateinit var checkboxAnnotation: CheckBox
-    private lateinit var imageView: ImageView
 
 
     /**
@@ -62,21 +51,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        simpleVideoView = findViewById<View>(R.id.simpleVideoView) as VideoView
         editTextQuery = findViewById(R.id.editTextQuery)
         buttonSearch = findViewById(R.id.buttonSearch)
-        mediaControls = MediaController(this)
-        mediaControls.setAnchorView(simpleVideoView)
-        progressBarVideo = findViewById(R.id.progressBarVideo)
-        simpleVideoView.setMediaController(mediaControls)
         cameraExecutor = Executors.newSingleThreadExecutor()
-        progressBarVideo.visibility = View.GONE
         spinnerDataType = findViewById(R.id.spinnerDataType)
         spinnerSentiment = findViewById(R.id.spinnerSentiment)
         val dataType = spinnerDataType.selectedItem.toString()
         val emotion = spinnerSentiment.selectedItem.toString()
-        checkboxAnnotation = findViewById(R.id.checkboxShowAnnotation)
-        imageView = findViewById<ImageView>(R.id.imageAnnotation)
 
 
         if (allPermissionsGranted()) {
@@ -86,19 +67,13 @@ class MainActivity : AppCompatActivity() {
                 Companion.REQUEST_CODE_PERMISSIONS
             )
         }
-        checkboxAnnotation.setOnCheckedChangeListener { _, isChecked ->
-            imageView.visibility = if (isChecked) View.VISIBLE else View.GONE
-        }
 
         buttonSearch.setOnClickListener {
-            progressBarVideo.visibility = View.VISIBLE
-            simpleVideoView.visibility = View.GONE
             val query = editTextQuery.text.toString().trim()
             if (query.isNotEmpty()) {
                 sendPostRequestSentimentQuery(this, query)
                 sendQueryRequestWithSentiment(this, query, dataType, emotion) { result ->
                     if (true) {
-                        simpleVideoView.visibility = View.VISIBLE
                         Log.d("VOLLEY", "response: $result")
                     } else {
                         Log.e("VOLLEY", "Request failed")
@@ -146,20 +121,10 @@ class MainActivity : AppCompatActivity() {
                         val intent = Intent(this, SearchResultsActivity::class.java)
                         intent.putExtra("results_json", result.toString()) // send JSON as String
                         startActivity(intent)
-
-                        progressBarVideo.visibility = View.GONE
-                        (context as? MainActivity)?.playVideo(videoUrl, time)
-                        playVideo(videoUrl, time)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {
                             val imageUrl = "http://10.34.64.139:8001/$imagePath"
                             Log.d("Image Path: ", imageUrl)
-                            imageView.visibility = if (checkboxAnnotation.isChecked) View.VISIBLE else View.GONE
-
-                            Glide.with(this)
-                                .load(imageUrl)
-                                .placeholder(android.R.drawable.ic_menu_report_image)
-                                .into(imageView)
                         }
                     } else {
                         Log.e("VOLLEY", "No videos found in response")
@@ -171,7 +136,6 @@ class MainActivity : AppCompatActivity() {
             },
             { error ->
                 Log.e("VOLLEY", "Volley Error: ${error.message}")
-                progressBarVideo.visibility = View.GONE
 
                 if (error.networkResponse != null) {
                     val statusCode = error.networkResponse.statusCode
@@ -186,7 +150,6 @@ class MainActivity : AppCompatActivity() {
             DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
             DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         )
-        progressBarVideo.visibility = View.VISIBLE
         requestQueue.add(stringRequest)
     }
 
@@ -222,9 +185,6 @@ class MainActivity : AppCompatActivity() {
                         val baseUrl = "http://10.34.64.139:8001"
                         val videoUrl = "$baseUrl$videoPath"
                         Log.d("VOLLEY", "Playing video from URL: $videoUrl")
-                        progressBarVideo.visibility = View.GONE
-                        (context as? MainActivity)?.playVideo(videoUrl, time)
-                        playVideo(videoUrl, time)
                     } else {
                         Log.e("VOLLEY", "No videos found in response")
                     }
@@ -235,7 +195,6 @@ class MainActivity : AppCompatActivity() {
             },
             { error ->
                 Log.e("VOLLEY", "Volley Error: ${error.message}")
-                progressBarVideo.visibility = View.GONE
 
                 if (error.networkResponse != null) {
                     val statusCode = error.networkResponse.statusCode
@@ -250,36 +209,9 @@ class MainActivity : AppCompatActivity() {
             DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
             DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         )
-        progressBarVideo.visibility = View.VISIBLE
         requestQueue.add(stringRequest)
     }
 
-
-    private fun playVideo(url: String, time: Double) {
-        Log.i("VIDEO", "Starting video playback for: $url")
-
-        val uri = Uri.parse(url)
-        simpleVideoView.setVideoURI(uri)
-
-        simpleVideoView.setOnPreparedListener { mediaPlayer ->
-            progressBarVideo.visibility = View.GONE
-            simpleVideoView.visibility = View.VISIBLE
-            val seekPositionMs = (time * 1000).toInt()
-            mediaPlayer.seekTo(seekPositionMs)
-            mediaPlayer.start()
-        }
-
-        simpleVideoView.setOnCompletionListener {
-            Log.i("VIDEO", "Playback completed")
-            Toast.makeText(this, "Video completed", Toast.LENGTH_LONG).show()
-        }
-
-        simpleVideoView.setOnErrorListener { _, _, _ ->
-            Log.e("VIDEO", "Error playing video: $url")
-            Toast.makeText(this, "Error playing video", Toast.LENGTH_LONG).show()
-            false
-        }
-    }
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
