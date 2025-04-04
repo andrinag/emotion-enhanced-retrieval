@@ -142,6 +142,11 @@ class MainActivity : AppCompatActivity() {
                         val baseUrl = "http://10.34.64.139:8001"
                         val videoUrl = "$baseUrl$videoPath"
                         Log.d("VOLLEY", "Playing video from URL: $videoUrl")
+
+                        val intent = Intent(this, SearchResultsActivity::class.java)
+                        intent.putExtra("results_json", result.toString()) // send JSON as String
+                        startActivity(intent)
+
                         progressBarVideo.visibility = View.GONE
                         (context as? MainActivity)?.playVideo(videoUrl, time)
                         playVideo(videoUrl, time)
