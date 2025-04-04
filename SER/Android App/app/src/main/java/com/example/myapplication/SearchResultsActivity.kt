@@ -1,6 +1,7 @@
 package com.example.myapplication
 
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,10 +34,13 @@ class SearchResultsActivity : AppCompatActivity() {
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
             val videoUrl = baseUrl + obj.getString("video_path")
+            Log.d("VIDEO", "received video path$videoUrl")
             val frameTime = obj.optString("frame_time", "0.0").toDoubleOrNull() ?: 0.0
             val annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+            Log.d("VIDEO", "received annotated image path$annotatedImage")
             videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage))
         }
+        Log.d("SearchResultsActivity", "Parsed ${videoResults.size} results")
 
         adapter = ResultsAdapter(videoResults, this)
         recyclerView.adapter = adapter

@@ -1,31 +1,23 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:orientation="vertical"
-android:descendantFocusability="beforeDescendants"
-android:focusable="true"
-android:focusableInTouchMode="true"
-android:padding="8dp">
-
-<FrameLayout
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="200dp">
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    android:foreground="?android:attr/selectableItemBackground">
 
-    <VideoView
-        android:id="@+id/videoItemView"
+    <ImageView
+        android:id="@+id/annotationImage"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
+        android:layout_height="200dp"
+        android:scaleType="centerCrop"
+        android:adjustViewBounds="true"
+        android:contentDescription="Video Thumbnail" />
+
+    <ImageView
+        android:id="@+id/playIconOverlay"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@android:drawable/ic_media_play"
+        android:alpha="0.7" />
 </FrameLayout>
-
-<ImageView
-    android:id="@+id/annotationImage"
-    android:layout_width="match_parent"
-    android:layout_height="150dp"
-    android:adjustViewBounds="true"
-    android:scaleType="fitCenter"
-    android:visibility="gone"
-    android:layout_marginTop="8dp" />
-</LinearLayout>
-
