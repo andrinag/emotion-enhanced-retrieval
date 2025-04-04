@@ -3,4 +3,7 @@
     <item name="editTextQuery" type="id" />
     <item name="buttonSearch" type="id" />
     <item name="simpleVideoView" type="id" />
+    <item name="videoPlayerView" type="id" />
+    <item name="loadingSpinner" type="id" />
+    <item name="videoTitle" type="id" />
 </resources>

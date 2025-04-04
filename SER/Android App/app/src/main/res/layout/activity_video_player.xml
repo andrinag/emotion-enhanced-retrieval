@@ -1,17 +1,60 @@
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#00000000"
+    android:orientation="vertical"
+    android:padding="8dp">
 
-    <VideoView
-        android:id="@+id/videoPlayerView"
+    <!-- Video title -->
+    <TextView
+        android:id="@+id/videoTitle"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <ProgressBar
-        android:id="@+id/loadingSpinner"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        style="?android:attr/progressBarStyleLarge" />
-</FrameLayout>
+        android:background="#00222222"
+        android:padding="16dp"
+        android:text="Video Title"
+        android:textAlignment="center"
+        android:textColor="#FC000000"
+        android:textSize="34sp" />
+
+    <!-- Checkbox for toggling image -->
+
+    <!-- Video container -->
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="258dp"
+        android:layout_marginBottom="12dp">
+
+        <VideoView
+            android:id="@+id/videoPlayerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ProgressBar
+            android:id="@+id/loadingSpinner"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" />
+    </FrameLayout>
+
+    <!-- Annotated image shown below the video -->
+    <ImageView
+        android:id="@+id/imageAnnotation"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginBottom="24dp"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
+
+    <CheckBox
+        android:id="@+id/checkboxShowAnnotation"
+        android:layout_width="393dp"
+        android:layout_height="43dp"
+        android:padding="8dp"
+        android:text="Show annotated image"
+        android:textColor="#000000"
+        android:textSize="20sp" />
+</LinearLayout>

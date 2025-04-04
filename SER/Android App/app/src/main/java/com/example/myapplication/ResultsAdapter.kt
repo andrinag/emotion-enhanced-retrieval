@@ -48,6 +48,7 @@ class ResultsAdapter(
             intent.putExtra("annotated_image", item.annotatedImageUrl)
             context.startActivity(intent)
         }
+
     }
 
     override fun getItemCount(): Int = items.size
