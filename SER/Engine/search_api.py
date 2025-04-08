@@ -322,6 +322,7 @@ async def search_combined_asr(query: str, emotion: str):
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
     emotion = emotion_mapping(emotion)
+    print(emotion)
 
     try:
         emotion_filter = emotion.lower()
@@ -426,6 +427,7 @@ async def search_combined_ocr(query: str, emotion: str):
     """
     cursor = conn.cursor()
     emotion = emotion_mapping(emotion)
+    print(emotion)
 
     try:
         query_embedding = get_embedding(input_text=query.lower())
@@ -534,8 +536,8 @@ async def search_combined_ocr(query: str, emotion: str):
 
 
 
-@app.get("/search_combined_all/{query}/{sentiment}")
-async def search_combined_all(query: str, sentiment: str):
+@app.get("/search_combined_all/{query}/{emotion}")
+async def search_combined_all(query: str, emotion: str):
     """
     Multimodal sentiment-aware search:
     - Retrieves top 400 by embedding similarity.
@@ -545,6 +547,8 @@ async def search_combined_all(query: str, sentiment: str):
     - Returns top 10 by score.
     """
     cursor = conn.cursor()
+    emotion2 = emotion_mapping(emotion)
+    print(emotion2)
     try:
         query_embedding = get_embedding(input_text=query.lower())
         query_embedding = normalize_embedding(query_embedding)
@@ -604,9 +608,9 @@ async def search_combined_all(query: str, sentiment: str):
             LIMIT 10;
         """, (
             query_embedding.tolist(),
-            sentiment.lower(),
-            sentiment.lower(),
-            sentiment.lower()
+            emotion.lower(),
+            emotion.lower(),
+            emotion.lower()
         ))
 
         result = cursor.fetchall()
@@ -712,16 +716,13 @@ async def video_endpoint(path: str, start_time: float = 0.0, range: str = Header
 
 def emotion_mapping(emotion:str):
     emotion_to_emotion = {
-        "happy": "happy",
-        "sad": "sad",
+        "happy": "joy",
+        "sad": "sadness",
         "surprise": "surprise",
-        "angry": "angry",
+        "angry": "anger",
         "neutral": "neutral",
         "disgust": "disgust",
-        "fear": "fear",
-        "anger": "angry",
-        "joy": "happy",
-        "sadness": "sad"
+        "fear": "fear"
     }
     return emotion_to_emotion.get(emotion.lower(), "neutral")
 
