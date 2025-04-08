@@ -331,7 +331,6 @@ async def search_combined_asr(query: str, emotion: str):
         query_embedding = get_embedding(input_text=query_filter)
         query_embedding = normalize_embedding(query_embedding)
 
-
         cursor.execute("""
             WITH top_embeddings AS (
                 SELECT 
@@ -350,16 +349,16 @@ async def search_combined_asr(query: str, emotion: str):
                     te.location,
                     te.frame_time,
                     te.similarity,
-                    a.emotion,
-                    a.confidence,
-                    a.sentiment,
+                    COALESCE(a.emotion, '') AS emotion,
+                    COALESCE(a.confidence, 0.0) AS confidence,
+                    COALESCE(a.sentiment, '') AS sentiment,
                     CASE
                         WHEN LOWER(a.emotion) = LOWER(%s) THEN 1.0
                         ELSE 0.0
                     END AS emotion_match,
-                    ((te.similarity * 0.5) + (a.confidence * 0.5)) AS combined_score
+                    ((te.similarity * 0.5) + (COALESCE(a.confidence, 0.0) * 0.5)) AS combined_score
                 FROM top_embeddings te
-                JOIN ASR a ON a.embedding_id = te.embedding_id
+                LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
             )
             SELECT 
                 location,
@@ -432,7 +431,6 @@ async def search_combined_ocr(query: str, emotion: str):
         query_embedding = get_embedding(input_text=query.lower())
         query_embedding = normalize_embedding(query_embedding)
 
-        # Step 1: Get top matches based on embedding similarity
         cursor.execute("""
             WITH top_embeddings AS (
                 SELECT 
@@ -451,20 +449,23 @@ async def search_combined_ocr(query: str, emotion: str):
                     te.location,
                     te.frame_time,
                     te.similarity,
-                    o.emotion,
-                    o.sentiment,
-                    o.sentiment_confidence,
-                    o.ocr_confidence,
-                    o.path_annotated_location,
-                    o.text,
-                    o.x, o.y, o.w, o.h,
+                    COALESCE(o.emotion, '') AS emotion,
+                    COALESCE(o.sentiment, '') AS sentiment,
+                    COALESCE(o.sentiment_confidence, 0.0) AS sentiment_confidence,
+                    COALESCE(o.ocr_confidence, 0.0) AS ocr_confidence,
+                    COALESCE(o.path_annotated_location, '') AS path_annotated_location,
+                    COALESCE(o.text, '') AS text,
+                    COALESCE(o.x, 0.0) AS x,
+                    COALESCE(o.y, 0.0) AS y,
+                    COALESCE(o.w, 0.0) AS w,
+                    COALESCE(o.h, 0.0) AS h,
                     CASE
                         WHEN LOWER(o.emotion) = LOWER(%s) THEN 1.0
                         ELSE 0.0
                     END AS emotion_match,
-                    ((te.similarity * 0.5) + (o.sentiment_confidence * 0.5)) AS combined_score
+                    ((te.similarity * 0.5) + (COALESCE(o.sentiment_confidence, 0.0) * 0.5)) AS combined_score
                 FROM top_embeddings te
-                JOIN OCR o ON o.embedding_id = te.embedding_id
+                LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
             )
             SELECT 
                 location,
@@ -486,7 +487,6 @@ async def search_combined_ocr(query: str, emotion: str):
         """, (query_embedding.tolist(), emotion.lower()))
 
         result = cursor.fetchall()
-        print(result)
         cursor.close()
 
         if not result:
@@ -517,7 +517,7 @@ async def search_combined_ocr(query: str, emotion: str):
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
-                    "ocr_annotated_image": annotated_path,
+                    "ocr_annotated_image": annotated_path if annotated_path else None,
                     "ocr_text": ocr_text,
                     "ocr_emotion": emotion,
                     "ocr_sentiment": sentiment_label,
@@ -525,6 +525,7 @@ async def search_combined_ocr(query: str, emotion: str):
                     "ocr_confidence": round(float(ocr_conf), 3),
                     "bbox": {"x": x, "y": y, "w": w, "h": h}
                 })
+
         return JSONResponse(response)
 
     except Exception as e:
@@ -532,14 +533,16 @@ async def search_combined_ocr(query: str, emotion: str):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+
 @app.get("/search_combined_all/{query}/{sentiment}")
 async def search_combined_all(query: str, sentiment: str):
     """
     Multimodal sentiment-aware search:
     - Retrieves top 400 by embedding similarity.
-    - Scores each item using:
+    - Only includes results where at least one modality matches the target sentiment.
+    - Scores each using:
         0.5 * similarity + 0.5 * (2/8 * OCR_conf + 3/8 * ASR_conf + 3/8 * Face_conf)
-    - Returns top 10 ranked by combined score.
+    - Returns top 10 by score.
     """
     cursor = conn.cursor()
     try:
@@ -556,7 +559,7 @@ async def search_combined_all(query: str, sentiment: str):
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 400
+                LIMIT 600
             ),
             joined AS (
                 SELECT 
@@ -570,7 +573,10 @@ async def search_combined_all(query: str, sentiment: str):
                     COALESCE(a.confidence, 0.0) AS asr_confidence,
                     COALESCE(o.emotion, '') AS ocr_emotion,
                     COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
-                    COALESCE(f.path_annotated_faces, '') AS annotated_image
+                    COALESCE(f.path_annotated_faces, '') AS annotated_image,
+                    CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
+                    CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
+                    CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
                 FROM top_embeddings te
                 LEFT JOIN Face f ON f.embedding_id = te.embedding_id
                 LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
@@ -593,9 +599,15 @@ async def search_combined_all(query: str, sentiment: str):
                     )
                 ) AS combined_score
             FROM joined
+            WHERE face_match + asr_match + ocr_match > 0
             ORDER BY combined_score DESC
             LIMIT 10;
-        """, (query_embedding.tolist(),))
+        """, (
+            query_embedding.tolist(),
+            sentiment.lower(),
+            sentiment.lower(),
+            sentiment.lower()
+        ))
 
         result = cursor.fetchall()
         cursor.close()
@@ -634,6 +646,7 @@ async def search_combined_all(query: str, sentiment: str):
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 
 @app.get("/")
