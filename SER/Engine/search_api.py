@@ -2,6 +2,7 @@ import os
 import traceback
 from http.client import HTTPException
 import cv2
+import requests
 from fastapi import FastAPI, UploadFile, File, Response, Header, Request, HTTPException
 import torch
 from PIL import Image
@@ -9,13 +10,11 @@ import psycopg2
 import io
 from pgvector.psycopg2 import register_vector
 import uvicorn
-from fastapi.staticfiles import StaticFiles
 import open_clip
 from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import numpy as np
-from decimal import Decimal
 from fastapi.staticfiles import StaticFiles
 
 # load the clip model
@@ -42,7 +41,7 @@ app.mount("/")
 
 # connection to the local database
 conn = psycopg2.connect(
-    dbname="multimedia_db",
+    dbname="temp_multimedia_db",
     user="test",
     host="10.34.64.139",
     password="123",
@@ -209,19 +208,19 @@ async def search_images(request: Request, query: str):
 
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
-@app.get("/search_combined_face/{query}/{sentiment}/")
-async def search_combined_face(query: str, sentiment: str):
+@app.get("/search_combined_face/{query}/{emotion}/")
+async def search_combined_face(query: str, emotion: str):
     """
     Hybrid search that:
     1. Finds top-200 embeddings most similar to the query
     2. Joins with all Face entries
     3. Computes a combined score using similarity and emotion confidence
-    4. Returns top results where emotion matches the provided sentiment
+    4. Returns top results where emotion matches the provided emotion
     """
     cursor = conn.cursor()
 
     try:
-        sentiment_filter = sentiment.lower()
+        emotion_filter = emotion.lower()
         query_filter = query.lower()
 
         # 1. Generate and normalize embedding from the query
@@ -271,7 +270,7 @@ async def search_combined_face(query: str, sentiment: str):
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
             LIMIT 10;
-        """, (query_embedding.tolist(), sentiment_filter))
+        """, (query_embedding.tolist(), emotion_filter))
 
         result = cursor.fetchall()
         cursor.close()
@@ -312,8 +311,8 @@ async def search_combined_face(query: str, sentiment: str):
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/search_combined_asr/{query}/{sentiment}")
-async def search_combined_asr(query: str, sentiment: str):
+@app.get("/search_combined_asr/{query}/{emotion}")
+async def search_combined_asr(query: str, emotion: str):
     """
     Hybrid search using ASR (speech emotion):
     1. Finds top-200 embeddings most similar to the query
@@ -323,14 +322,16 @@ async def search_combined_asr(query: str, sentiment: str):
     """
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
+    emotion = emotion_mapping(emotion)
 
     try:
-        sentiment_filter = sentiment.lower()
+        emotion_filter = emotion.lower()
         query_filter = query.lower()
 
         # Generate and normalize embedding from the query
         query_embedding = get_embedding(input_text=query_filter)
         query_embedding = normalize_embedding(query_embedding)
+
 
         cursor.execute("""
             WITH top_embeddings AS (
@@ -374,7 +375,7 @@ async def search_combined_asr(query: str, sentiment: str):
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
             LIMIT 10;
-        """, (query_embedding.tolist(), sentiment_filter))
+        """, (query_embedding.tolist(), emotion_filter))
 
         result = cursor.fetchall()
         print(result)
@@ -416,8 +417,8 @@ async def search_combined_asr(query: str, sentiment: str):
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/search_combined_ocr/{query}/{sentiment}")
-async def search_combined_ocr(query: str, sentiment: str):
+@app.get("/search_combined_ocr/{query}/{emotion}")
+async def search_combined_ocr(query: str, emotion: str):
     """
     Hybrid search using OCR data:
     1. Finds top-N embeddings similar to the query
@@ -426,6 +427,7 @@ async def search_combined_ocr(query: str, sentiment: str):
     4. Filters by OCR emotion match
     """
     cursor = conn.cursor()
+    emotion = emotion_mapping(emotion)
 
     try:
         query_embedding = get_embedding(input_text=query.lower())
@@ -482,7 +484,7 @@ async def search_combined_ocr(query: str, sentiment: str):
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
             LIMIT 10;
-        """, (query_embedding.tolist(), sentiment.lower()))
+        """, (query_embedding.tolist(), emotion.lower()))
 
         result = cursor.fetchall()
         print(result)
@@ -534,8 +536,11 @@ async def search_combined_ocr(query: str, sentiment: str):
 @app.get("/search_combined_all/{query}/{sentiment}")
 async def search_combined_all(query: str, sentiment: str):
     """
-    Unified multimodal sentiment-aware search:
-    Uses the formula: 0.5 * embedding similarity + 0.5 * (2/8 * OCR + 3/8 * ASR + 3/8 * Face)
+    Multimodal sentiment-aware search:
+    - Retrieves top 400 by embedding similarity.
+    - Scores each item using:
+        0.5 * similarity + 0.5 * (2/8 * OCR_conf + 3/8 * ASR_conf + 3/8 * Face_conf)
+    - Returns top 10 ranked by combined score.
     """
     cursor = conn.cursor()
     try:
@@ -552,7 +557,7 @@ async def search_combined_all(query: str, sentiment: str):
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 200
+                LIMIT 400
             ),
             joined AS (
                 SELECT 
@@ -560,22 +565,13 @@ async def search_combined_all(query: str, sentiment: str):
                     te.location,
                     te.frame_time,
                     te.similarity,
-                    COALESCE(f.emotion, '') as face_emotion,
-                    COALESCE(f.confidence, 0.0) as face_confidence,
-                    COALESCE(a.emotion, '') as asr_emotion,
-                    COALESCE(a.confidence, 0.0) as asr_confidence,
-                    COALESCE(o.emotion, '') as ocr_emotion,
-                    COALESCE(o.sentiment_confidence, 0.0) as ocr_confidence,
-                    COALESCE(f.path_annotated_faces, '') as annotated_image,
-                    CASE
-                        WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0
-                    END AS face_match,
-                    CASE
-                        WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0
-                    END AS asr_match,
-                    CASE
-                        WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0
-                    END AS ocr_match
+                    COALESCE(f.emotion, '') AS face_emotion,
+                    COALESCE(f.confidence, 0.0) AS face_confidence,
+                    COALESCE(a.emotion, '') AS asr_emotion,
+                    COALESCE(a.confidence, 0.0) AS asr_confidence,
+                    COALESCE(o.emotion, '') AS ocr_emotion,
+                    COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
+                    COALESCE(f.path_annotated_faces, '') AS annotated_image
                 FROM top_embeddings te
                 LEFT JOIN Face f ON f.embedding_id = te.embedding_id
                 LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
@@ -589,12 +585,18 @@ async def search_combined_all(query: str, sentiment: str):
                 face_emotion, face_confidence,
                 asr_emotion, asr_confidence,
                 ocr_emotion, ocr_confidence,
-                (0.5 * similarity + 0.5 * ((0.25 * ocr_confidence) + (0.375 * asr_confidence) + (0.375 * face_confidence))) AS combined_score
+                (
+                    0.5 * similarity +
+                    0.5 * (
+                        (2.0 / 8.0) * ocr_confidence +
+                        (3.0 / 8.0) * asr_confidence +
+                        (3.0 / 8.0) * face_confidence
+                    )
+                ) AS combined_score
             FROM joined
-            WHERE face_emotion = %s OR asr_emotion = %s OR ocr_emotion = %s
             ORDER BY combined_score DESC
             LIMIT 10;
-        """, (query_embedding.tolist(), sentiment, sentiment, sentiment, sentiment, sentiment))
+        """, (query_embedding.tolist(),))
 
         result = cursor.fetchall()
         cursor.close()
@@ -695,6 +697,34 @@ async def video_endpoint(path: str, start_time: float = 0.0, range: str = Header
         return stream_video(fallback_path, start_time)
 
     raise HTTPException(status_code=404, detail="Video not found")
+
+def emotion_mapping(emotion:str):
+    emotion_to_emotion = {
+        "happy": "happy",
+        "sad": "sad",
+        "surprise": "surprise",
+        "angry": "angry",
+        "neutral": "neutral",
+        "disgust": "disgust",
+        "fear": "fear",
+        "anger": "angry",
+        "joy": "happy",
+        "sadness": "sad"
+    }
+    return emotion_to_emotion.get(emotion.lower(), "neutral")
+
+
+async def send_query_to_llama(query: str):
+    response = requests.post("http://localhost:11434/api/generate", json={
+        "model": "llama2",
+        "prompt": f"Please reformulate this query and only return the reformulated query:\n\n{query}",
+        "stream": False
+    })
+
+    if response.status_code == 200:
+        return response.json().get("response", "").strip()
+    else:
+        raise Exception(f"Failed to get response from LLaMA. Status code: {response.status_code}")
 
 
 if __name__ == "__main__":
