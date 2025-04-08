@@ -11,7 +11,6 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.view.PreviewView
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import java.util.concurrent.ExecutorService
@@ -43,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerDataType: android.widget.Spinner
     private lateinit var spinnerSentiment: android.widget.Spinner
     private lateinit var checkboxAnnotation: CheckBox
+    var userEmotion: String = "happy"
 
 
     /**
@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
 
         buttonSearch.setOnClickListener {
             val query = editTextQuery.text.toString().trim()
+            val dataType = spinnerDataType.selectedItem.toString()
             if (query.isNotEmpty()) {
                 sendPostRequestSentimentQuery(this, query)
                 sendQueryRequestWithSentiment(this, query, dataType, emotion) { result ->
@@ -90,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         emotion: String,
         callback: (JSONArray) -> Unit
     ) {
-        val url = "http://10.34.64.139:8001/search_combined_face/$query/$emotion"
+        val url = "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
@@ -332,10 +333,10 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val jsonResponse = JSONObject(response)
                     val sentiment = jsonResponse.optString("sentiment", "Unknown")
-                    val emotion = jsonResponse.optString("emotion", "Unknown")
+                    userEmotion = jsonResponse.optString("emotion", "Unknown")
 
                     runOnUiThread {
-                        findViewById<TextView>(R.id.text).text = "Sentiment: $sentiment\nEmotion: $emotion"
+                        findViewById<TextView>(R.id.text).text = "Sentiment: $sentiment\nEmotion: $userEmotion"
                     }
 
                 } catch (e: Exception) {
@@ -394,9 +395,6 @@ class MainActivity : AppCompatActivity() {
                     val sentimentScore = firstSentiment.getDouble("score")
 
                     val sentimentText = "Sentiment: $sentimentLabel (${String.format("%.2f", sentimentScore)})"
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.querySentiment).text = sentimentText
-                    }
 
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
@@ -410,10 +408,6 @@ class MainActivity : AppCompatActivity() {
                     val responseData = error.networkResponse.data?.let { String(it) } ?: "No response body"
                     Log.e("VOLLEY", "HTTP Status Code: $statusCode")
                     Log.e("VOLLEY", "Response Data: $responseData")
-                }
-
-                runOnUiThread {
-                    findViewById<TextView>(R.id.querySentiment).text = "Error: Could not get response"
                 }
             }) {
 

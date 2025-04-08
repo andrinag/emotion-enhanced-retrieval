@@ -1,9 +1,10 @@
 <resources>
-    <string name="app_name">SER</string>
+    <string name="app_name">Emotion Enhanced Retrieval Engine</string>
     <string-array name="data_type_array">
         <item>ocr</item>
         <item>asr</item>
         <item>face</item>
+        <item>all</item>
     </string-array>
 
     <string-array name="emotion_type_array">
@@ -14,11 +15,12 @@
         <item>surprise</item>
         <item>fear</item>
         <item>disgust</item>
+        <item>my current emotion</item>
     </string-array>
 
     <string name="app_title">Emotion Enhanced Retrieval Engine</string>
     <string name="app_explanation">
-        Enter your search query and choose the emotion.\nYou can specify where it should be detected: in faces, speech, or text.
+        Enter your search query and choose the emotion.\nYou can specify where it should be detected: in faces, speech (asr), or text (ocr).
     </string>
 
 
