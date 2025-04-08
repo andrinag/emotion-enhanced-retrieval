@@ -34,7 +34,6 @@ if not os.path.exists(FRAME_STORAGE):
 app = FastAPI()
 app.mount("/media/V3C/V3C1/video-480p/", StaticFiles(directory="/media/V3C/V3C1/video-480p/"), name="videos")
 app.mount("/faces", StaticFiles(directory="./faces"), name="faces")
-app.mount("/")
 #locally
 # app.mount("/videos", StaticFiles(directory="./videos"), name="videos")
 
