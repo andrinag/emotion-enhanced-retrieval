@@ -727,6 +727,7 @@ def emotion_mapping(emotion:str):
     return emotion_to_emotion.get(emotion.lower(), "neutral")
 
 
+@app.get("/ask_llama/{query}")
 async def send_query_to_llama(query: str):
     response = requests.post("http://localhost:11434/api/generate", json={
         "model": "llama2",
