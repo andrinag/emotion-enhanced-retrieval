@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 import numpy as np
 from fastapi.staticfiles import StaticFiles
+from fastapi.concurrency import run_in_threadpool
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -729,11 +730,15 @@ def emotion_mapping(emotion:str):
 
 @app.get("/ask_llama/{query}/{emotion}")
 async def send_query_to_llama(query: str, emotion:str):
-    response = requests.post("http://localhost:11434/api/generate", json={
-        "model": "tinyllama",
-        "prompt": f"Please give me as many words as possible that somehow related to this query:\n\n{query}",
-        "stream": False
-    })
+    response = await run_in_threadpool(
+        requests.post,
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "tinyllama",
+            "prompt": f"Please give me as many words as possible that somehow relate to this query:\n\n{query}",
+            "stream": False
+        }
+    )
 
     if response.status_code == 200:
         query = response.json().get("response", "").strip()
