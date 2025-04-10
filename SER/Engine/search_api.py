@@ -730,7 +730,7 @@ def emotion_mapping(emotion:str):
 @app.get("/ask_llama/{query}")
 async def send_query_to_llama(query: str):
     response = requests.post("http://localhost:11434/api/generate", json={
-        "model": "llama2",
+        "model": "mistral",
         "prompt": f"Please reformulate this query and only return the reformulated query:\n\n{query}",
         "stream": False
     })
