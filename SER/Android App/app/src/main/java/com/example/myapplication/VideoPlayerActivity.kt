@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -20,7 +21,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.android.volley.DefaultRetryPolicy
 import com.android.volley.NetworkResponse
+import com.android.volley.Request
 import com.android.volley.Request.Method
 import com.android.volley.RequestQueue
 import com.android.volley.Response
@@ -29,6 +32,7 @@ import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import com.bumptech.glide.Glide
 import com.example.myapplication.MainActivity
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
@@ -45,6 +49,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     var userEmotion: String = "happy"
+    var expectingAnswerLlama = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,6 +120,46 @@ class VideoPlayerActivity : AppCompatActivity() {
         }
     }
 
+
+    fun sendQueryRequestLlama(
+        context: android.content.Context,
+        query: String,
+        callback: (JSONArray) -> Unit
+    ) {
+        val url = "http://10.34.64.139:8001/ask_llama/cat"
+
+        val requestQueue: RequestQueue = Volley.newRequestQueue(context)
+
+        val stringRequest = StringRequest(
+            Request.Method.GET, url,
+            Response.Listener<String> { response ->
+                Log.i("LLAMA", "Success! Response: $response")
+                try {
+                    val result = JSONArray(response)
+
+                } catch (e: Exception) {
+                    Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
+                }
+            },
+            { error ->
+                Log.e("LLAMA", "Volley Error: ${error.message}")
+
+                if (error.networkResponse != null) {
+                    val statusCode = error.networkResponse.statusCode
+                    val responseBody = error.networkResponse.data?.let { String(it) }
+                    Log.e("LLAMA", "HTTP Status Code: $statusCode")
+                    Log.e("LLAMA", "Error Response Body: $responseBody")
+                }
+            })
+
+        stringRequest.retryPolicy = DefaultRetryPolicy(
+            100000,
+            DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+            DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+        )
+        requestQueue.add(stringRequest)
+    }
+
     fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
         // TODO needs to be changed to the node adress
         val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
@@ -132,6 +177,18 @@ class VideoPlayerActivity : AppCompatActivity() {
                     val jsonResponse = JSONObject(response)
                     val sentiment = jsonResponse.optString("sentiment", "Unknown")
                     userEmotion = jsonResponse.optString("emotion", "Unknown")
+                    if ((userEmotion == "sad" && !expectingAnswerLlama)|| (userEmotion == "angry" && !expectingAnswerLlama)) {
+                        Log.d("LLAMA", "sending to llama")
+                        expectingAnswerLlama = true
+                        sendQueryRequestLlama(this, "cat") { result ->
+                            if (true) {
+                                Log.d("LLAMA", "response: $result")
+                                expectingAnswerLlama = false
+                            } else {
+                                Log.e("LLAMA", "Request failed")
+                            }
+                        }
+                    }
 
                     runOnUiThread {
                         findViewById<TextView>(R.id.text).text = "Sentiment: $sentiment\nEmotion: $userEmotion"
@@ -172,6 +229,8 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         requestQueue.add(stringRequest)
     }
+
+
     private var lastSentTime = 0L // stores the last time image was sent
 
     private fun startCameraStream() {

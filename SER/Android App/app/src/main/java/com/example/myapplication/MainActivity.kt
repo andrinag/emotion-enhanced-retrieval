@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -15,9 +16,11 @@ import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import java.util.concurrent.ExecutorService
 import android.util.Base64
+import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -40,7 +43,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     private lateinit var spinnerDataType: android.widget.Spinner
-    private lateinit var spinnerSentiment: android.widget.Spinner
+    private lateinit var spinnerEmotion: android.widget.Spinner
     private lateinit var checkboxAnnotation: CheckBox
     var userEmotion: String = "happy"
 
@@ -55,9 +58,9 @@ class MainActivity : AppCompatActivity() {
         buttonSearch = findViewById(R.id.buttonSearch)
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
-        spinnerSentiment = findViewById(R.id.spinnerSentiment)
+        spinnerEmotion = findViewById(R.id.spinnerSentiment)
         val dataType = spinnerDataType.selectedItem.toString()
-        val emotion = spinnerSentiment.selectedItem.toString()
+        val emotion = spinnerEmotion.selectedItem.toString()
 
 
         if (allPermissionsGranted()) {
@@ -71,8 +74,13 @@ class MainActivity : AppCompatActivity() {
         buttonSearch.setOnClickListener {
             val query = editTextQuery.text.toString().trim()
             val dataType = spinnerDataType.selectedItem.toString()
+            var emotion = spinnerEmotion.selectedItem.toString()
             if (query.isNotEmpty()) {
                 sendPostRequestSentimentQuery(this, query)
+                if (emotion == "my current emotion") {
+                    emotion = userEmotion
+                    Log.d("EMOTION", "taking current emotion of user $emotion")
+                }
                 sendQueryRequestWithSentiment(this, query, dataType, emotion) { result ->
                     if (true) {
                         Log.d("VOLLEY", "response: $result")
@@ -81,6 +89,19 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    fun generateVideoThumbnail(videoUrl: String, timeMs: Long = 0): Bitmap? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(videoUrl, HashMap())
+            val frame = retriever.getFrameAtTime(timeMs * 1000) // microseconds
+            retriever.release()
+            frame
+        } catch (e: Exception) {
+            Log.e("Thumbnail", "Failed to generate thumbnail: ${e.message}")
+            null
         }
     }
 

@@ -20,7 +20,7 @@
 
     <string name="app_title">Emotion Enhanced Retrieval Engine</string>
     <string name="app_explanation">
-        Enter your search query and choose the emotion.\nYou can specify where it should be detected: in faces, speech (asr), or text (ocr).
+        Enter your search query and choose the emotion.\nYou can specify where it should be detected: in faces, speech (asr), text (ocr) or all of them combined.
     </string>
 
 
