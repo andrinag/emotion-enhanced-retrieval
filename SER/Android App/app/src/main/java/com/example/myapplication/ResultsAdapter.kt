@@ -18,7 +18,9 @@ import com.bumptech.glide.Glide
  */
 class ResultsAdapter(
     private val items: List<VideoResult>,
-    private val context: Context
+    private val context: Context,
+    private val query: String,
+    private val emotion: String
 ) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -71,6 +73,8 @@ class ResultsAdapter(
             intent.putExtra("video_url", item.videoUrl)
             intent.putExtra("frame_time", item.frameTime)
             intent.putExtra("annotated_image", item.annotatedImageUrl)
+            intent.putExtra("currentQuery", query)
+            intent.putExtra("emotion", emotion)
             context.startActivity(intent)
         }
     }

@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerEmotion: android.widget.Spinner
     private lateinit var checkboxAnnotation: CheckBox
     var userEmotion: String = "happy"
+    var emotionSpinner = "happy"
 
 
     /**
@@ -59,8 +60,6 @@ class MainActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
         spinnerEmotion = findViewById(R.id.spinnerSentiment)
-        val dataType = spinnerDataType.selectedItem.toString()
-        val emotion = spinnerEmotion.selectedItem.toString()
 
 
         if (allPermissionsGranted()) {
@@ -74,14 +73,14 @@ class MainActivity : AppCompatActivity() {
         buttonSearch.setOnClickListener {
             val query = editTextQuery.text.toString().trim()
             val dataType = spinnerDataType.selectedItem.toString()
-            var emotion = spinnerEmotion.selectedItem.toString()
+            var emotionSpinner = spinnerEmotion.selectedItem.toString()
             if (query.isNotEmpty()) {
                 sendPostRequestSentimentQuery(this, query)
-                if (emotion == "my current emotion") {
-                    emotion = userEmotion
-                    Log.d("EMOTION", "taking current emotion of user $emotion")
+                if (emotionSpinner == "my current emotion") {
+                    emotionSpinner = userEmotion
+                    Log.d("EMOTION", "taking current emotion of user $emotionSpinner")
                 }
-                sendQueryRequestWithSentiment(this, query, dataType, emotion) { result ->
+                sendQueryRequestWithSentiment(this, query, dataType, emotionSpinner) { result ->
                     if (true) {
                         Log.d("VOLLEY", "response: $result")
                     } else {
@@ -142,6 +141,11 @@ class MainActivity : AppCompatActivity() {
 
                         val intent = Intent(this, SearchResultsActivity::class.java)
                         intent.putExtra("results_json", result.toString()) // send JSON as String
+                        Log.d("Query", "Query is $query in Main")
+                        intent.putExtra("currentQuery", query.toString())
+                        intent.putExtra("results_json", result.toString())
+                        intent.putExtra("currentQuery", query)
+                        intent.putExtra("emotion", emotionSpinner)
                         startActivity(intent)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {

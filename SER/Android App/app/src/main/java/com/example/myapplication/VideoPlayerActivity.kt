@@ -21,6 +21,8 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.DefaultRetryPolicy
 import com.android.volley.NetworkResponse
 import com.android.volley.Request
@@ -50,6 +52,10 @@ class VideoPlayerActivity : AppCompatActivity() {
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     var userEmotion: String = "happy"
     var expectingAnswerLlama = false
+    var adaptedQuery = ""
+    private lateinit var suggestionsRecyclerView: RecyclerView
+    private lateinit var suggestionsAdapter: ResultsAdapter
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +67,9 @@ class VideoPlayerActivity : AppCompatActivity() {
         checkbox = findViewById(R.id.checkboxShowAnnotation)
         imageView = findViewById(R.id.imageAnnotation)
         cameraExecutor = Executors.newSingleThreadExecutor()
+        suggestionsRecyclerView = findViewById(R.id.suggestionsRecyclerView)
+        suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+
 
         if (allPermissionsGranted()) {
             startCameraStream()
@@ -124,9 +133,10 @@ class VideoPlayerActivity : AppCompatActivity() {
     fun sendQueryRequestLlama(
         context: android.content.Context,
         query: String,
+        emotionSpinner: String,
         callback: (JSONArray) -> Unit
     ) {
-        val url = "http://10.34.64.139:8001/ask_llama/cat"
+        val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
@@ -136,10 +146,25 @@ class VideoPlayerActivity : AppCompatActivity() {
                 Log.i("LLAMA", "Success! Response: $response")
                 try {
                     val result = JSONArray(response)
+                    val videoResults = mutableListOf<VideoResult>()
+                    val baseUrl = "http://10.34.64.139:8001"
+
+                    for (i in 0 until result.length()) {
+                        val obj = result.getJSONObject(i)
+                        val videoUrl = baseUrl + obj.getString("video_path")
+                        val frameTime = obj.optDouble("frame_time", 0.0)
+                        val annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+
+                        videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage))
+                    }
+
+                    suggestionsAdapter = ResultsAdapter(videoResults, this, query, emotionSpinner)
+                    suggestionsRecyclerView.adapter = suggestionsAdapter
 
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
                 }
+
             },
             { error ->
                 Log.e("LLAMA", "Volley Error: ${error.message}")
@@ -180,9 +205,25 @@ class VideoPlayerActivity : AppCompatActivity() {
                     if ((userEmotion == "sad" && !expectingAnswerLlama)|| (userEmotion == "angry" && !expectingAnswerLlama)) {
                         Log.d("LLAMA", "sending to llama")
                         expectingAnswerLlama = true
-                        sendQueryRequestLlama(this, "cat") { result ->
+
+                        val query = intent.getStringExtra("currentQuery")
+                        val emotionSpinner = intent.getStringExtra("emotion")
+                        Log.d("VideoPlayerActivity", "Received query: $query")
+
+
+                        if (query == null) {
+                            Log.e("LLAMA", "Query is null, not sending to LLaMA")
+                            return@Listener
+                        }
+                        if (emotionSpinner == null) {
+                            Log.e("LLAMA", "Query is null, not sending to LLaMA")
+                            return@Listener
+                        }
+
+                        sendQueryRequestLlama(this, query, emotionSpinner) { result ->
                             if (true) {
                                 Log.d("LLAMA", "response: $result")
+                                adaptedQuery = result.toString()
                                 expectingAnswerLlama = false
                             } else {
                                 Log.e("LLAMA", "Request failed")

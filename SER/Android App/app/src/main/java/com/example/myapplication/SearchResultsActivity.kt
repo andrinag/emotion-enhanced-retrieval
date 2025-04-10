@@ -42,7 +42,11 @@ class SearchResultsActivity : AppCompatActivity() {
         }
         Log.d("SearchResultsActivity", "Parsed ${videoResults.size} results")
 
-        adapter = ResultsAdapter(videoResults, this)
+        val query = intent.getStringExtra("currentQuery") ?: ""
+        val emotionSpinner = intent.getStringExtra("emotion") ?: ""
+        Log.d("Query", "Query in Search Result Acitivity is $query")
+        adapter = ResultsAdapter(videoResults, this, query, emotionSpinner) // pass the query to adapter
+
         recyclerView.adapter = adapter
     }
 }
