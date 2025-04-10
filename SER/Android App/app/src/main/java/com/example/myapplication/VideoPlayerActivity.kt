@@ -55,6 +55,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     var adaptedQuery = ""
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: ResultsAdapter
+    var negativeSentimentCounter: Int = 0
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +70,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         suggestionsRecyclerView = findViewById(R.id.suggestionsRecyclerView)
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+
 
 
         if (allPermissionsGranted()) {
@@ -202,31 +204,26 @@ class VideoPlayerActivity : AppCompatActivity() {
                     val jsonResponse = JSONObject(response)
                     val sentiment = jsonResponse.optString("sentiment", "Unknown")
                     userEmotion = jsonResponse.optString("emotion", "Unknown")
-                    if ((userEmotion == "sad" && !expectingAnswerLlama)|| (userEmotion == "angry" && !expectingAnswerLlama)) {
-                        Log.d("LLAMA", "sending to llama")
-                        expectingAnswerLlama = true
+                    if ((userEmotion == "sad" || userEmotion == "angry") && !expectingAnswerLlama) {
+                        negativeSentimentCounter++
+                        Log.d("LLAMA", "Negative sentiment detected. Count: $negativeSentimentCounter")
 
-                        val query = intent.getStringExtra("currentQuery")
-                        val emotionSpinner = intent.getStringExtra("emotion")
-                        Log.d("VideoPlayerActivity", "Received query: $query")
+                        if (negativeSentimentCounter >= 10) {
+                            expectingAnswerLlama = true
 
+                            val query = intent.getStringExtra("currentQuery")
+                            val emotionSpinner = intent.getStringExtra("emotion")
 
-                        if (query == null) {
-                            Log.e("LLAMA", "Query is null, not sending to LLaMA")
-                            return@Listener
-                        }
-                        if (emotionSpinner == null) {
-                            Log.e("LLAMA", "Query is null, not sending to LLaMA")
-                            return@Listener
-                        }
+                            if (query.isNullOrBlank() || emotionSpinner.isNullOrBlank()) {
+                                Log.e("LLAMA", "Missing query or emotion, not sending to LLaMA")
+                                return@Listener
+                            }
 
-                        sendQueryRequestLlama(this, query, emotionSpinner) { result ->
-                            if (true) {
-                                Log.d("LLAMA", "response: $result")
+                            sendQueryRequestLlama(this, query, emotionSpinner) { result ->
+                                Log.d("LLAMA", "LLaMA returned ${result.length()} results")
                                 adaptedQuery = result.toString()
                                 expectingAnswerLlama = false
-                            } else {
-                                Log.e("LLAMA", "Request failed")
+                                negativeSentimentCounter = 0 // Reset counter after success
                             }
                         }
                     }
