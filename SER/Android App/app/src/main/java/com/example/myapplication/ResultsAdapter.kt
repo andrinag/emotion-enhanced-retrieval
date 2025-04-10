@@ -2,6 +2,9 @@ package com.example.myapplication
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,19 +31,41 @@ class ResultsAdapter(
         return ViewHolder(view)
     }
 
+    fun generateVideoThumbnail(videoUrl: String, frameTimeMillis: Long): Bitmap? {
+        return try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(videoUrl, HashMap()) // Use empty headers map
+            val bitmap = retriever.getFrameAtTime(frameTimeMillis * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            retriever.release()
+            Log.d("Thumbnail", "Generated thumbnail at $frameTimeMillis ms")
+            bitmap
+        } catch (e: Exception) {
+            Log.e("Thumbnail", "Failed to generate thumbnail: ${e.message}")
+            null
+        }
+    }
+
+
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
 
-        // Load annotated image or fallback placeholder (e.g. for asr)
-        val imageUrl = item.annotatedImageUrl
-            ?: "https://via.placeholder.com/640x360.png?text=No+Thumbnail"
+        if (!item.annotatedImageUrl.isNullOrBlank()) {
+            // If an annotated image is available, load it with Glide
+            Glide.with(context)
+                .load(item.annotatedImageUrl)
+                .placeholder(android.R.drawable.ic_menu_report_image)
+                .into(holder.imageView)
+        } else {
+            // Otherwise, try to generate a thumbnail from the video
+            val thumbnail = generateVideoThumbnail(item.videoUrl, (item.frameTime * 1000).toLong())
+            if (thumbnail != null) {
+                holder.imageView.setImageBitmap(thumbnail)
+            } else {
+                // Fallback: show a default placeholder if thumbnail generation fails
+                holder.imageView.setImageResource(android.R.drawable.ic_menu_report_image)
+            }
+        }
 
-        Glide.with(context)
-            .load(imageUrl)
-            .placeholder(android.R.drawable.ic_menu_report_image)
-            .into(holder.imageView)
-
-        // open the actual videoplayer when clicked
         holder.itemView.setOnClickListener {
             val intent = Intent(context, VideoPlayerActivity::class.java)
             intent.putExtra("video_url", item.videoUrl)
@@ -48,7 +73,6 @@ class ResultsAdapter(
             intent.putExtra("annotated_image", item.annotatedImageUrl)
             context.startActivity(intent)
         }
-
     }
 
     override fun getItemCount(): Int = items.size

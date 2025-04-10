@@ -6,5 +6,5 @@ package com.example.myapplication
 data class VideoResult(
     val videoUrl: String,
     val frameTime: Double,
-    val annotatedImageUrl: String?
+    val annotatedImageUrl: String? = null
 )
