@@ -727,16 +727,120 @@ def emotion_mapping(emotion:str):
     return emotion_to_emotion.get(emotion.lower(), "neutral")
 
 
-@app.get("/ask_llama/{query}")
-async def send_query_to_llama(query: str):
+@app.get("/ask_llama/{query}/{emotion}")
+async def send_query_to_llama(query: str, emotion:str):
     response = requests.post("http://localhost:11434/api/generate", json={
         "model": "mistral",
-        "prompt": f"Please reformulate this query and only return the reformulated query:\n\n{query}",
+        "prompt": f"Please give me as many words as possible that somehow related to this query:\n\n{query}",
         "stream": False
     })
 
     if response.status_code == 200:
-        return response.json().get("response", "").strip()
+        query = response.json().get("response", "").strip()
+        cursor = conn.cursor()
+        emotion2 = emotion_mapping(emotion)
+        print(emotion2)
+        try:
+            query_embedding = get_embedding(input_text=query.lower())
+            query_embedding = normalize_embedding(query_embedding)
+
+            cursor.execute("""
+                    WITH top_embeddings AS (
+                        SELECT 
+                            me.id AS embedding_id,
+                            mo.location,
+                            me.frame_time,
+                            1 - (me.embedding <=> %s::vector) AS similarity
+                        FROM multimedia_embeddings me
+                        JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                        ORDER BY similarity DESC
+                        LIMIT 600
+                    ),
+                    joined AS (
+                        SELECT 
+                            te.embedding_id,
+                            te.location,
+                            te.frame_time,
+                            te.similarity,
+                            COALESCE(f.emotion, '') AS face_emotion,
+                            COALESCE(f.confidence, 0.0) AS face_confidence,
+                            COALESCE(a.emotion, '') AS asr_emotion,
+                            COALESCE(a.confidence, 0.0) AS asr_confidence,
+                            COALESCE(o.emotion, '') AS ocr_emotion,
+                            COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
+                            COALESCE(f.path_annotated_faces, '') AS annotated_image,
+                            CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
+                            CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
+                            CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
+                        FROM top_embeddings te
+                        LEFT JOIN Face f ON f.embedding_id = te.embedding_id
+                        LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                        LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                    )
+                    SELECT 
+                        location,
+                        frame_time,
+                        similarity,
+                        annotated_image,
+                        face_emotion, face_confidence,
+                        asr_emotion, asr_confidence,
+                        ocr_emotion, ocr_confidence,
+                        (
+                            0.5 * similarity +
+                            0.5 * (
+                                (2.0 / 8.0) * ocr_confidence +
+                                (3.0 / 8.0) * asr_confidence +
+                                (3.0 / 8.0) * face_confidence
+                            )
+                        ) AS combined_score
+                    FROM joined
+                    WHERE face_match + asr_match + ocr_match > 0
+                    ORDER BY combined_score DESC
+                    LIMIT 10;
+                """, (
+                query_embedding.tolist(),
+                emotion.lower(),
+                emotion.lower(),
+                emotion.lower()
+            ))
+
+            result = cursor.fetchall()
+            cursor.close()
+
+            response = []
+            for row in result:
+                (
+                    location,
+                    frame_time,
+                    similarity,
+                    annotated_image,
+                    face_emotion, face_confidence,
+                    asr_emotion, asr_confidence,
+                    ocr_emotion, ocr_confidence,
+                    combined_score
+                ) = row
+
+                full_path = os.path.join(dir_1, location)
+                if os.path.exists(full_path):
+                    response.append({
+                        "video_path": full_path,
+                        "frame_time": float(frame_time),
+                        "similarity": round(float(similarity), 3),
+                        "final_score": round(float(combined_score), 3),
+                        "annotated_image": annotated_image if annotated_image else None,
+                        "face_emotion": face_emotion,
+                        "face_confidence": round(float(face_confidence), 3),
+                        "asr_emotion": asr_emotion,
+                        "asr_confidence": round(float(asr_confidence), 3),
+                        "ocr_emotion": ocr_emotion,
+                        "ocr_confidence": round(float(ocr_confidence), 3)
+                    })
+
+            return JSONResponse(response)
+
+        except Exception as e:
+            print(traceback.format_exc())
+            return JSONResponse({"error": str(e)}, status_code=500)
     else:
         raise Exception(f"Failed to get response from LLaMA. Status code: {response.status_code}")
 
