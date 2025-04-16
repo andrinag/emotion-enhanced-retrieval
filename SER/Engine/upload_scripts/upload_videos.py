@@ -17,7 +17,7 @@ def get_video_list_from_folder(folder_path):
 
 if __name__ == "__main__":
     folder_path = "/media/V3C/V3C1/video-480p"
-    #folder_path = "./videos" # local
+    folder_path = "../videos"  # local
     video_list = get_video_list_from_folder(folder_path)
 
     url = "http://127.0.0.1:8000/upload_videos/"

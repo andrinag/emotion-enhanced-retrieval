@@ -5,7 +5,7 @@ script for uploading all the images from a certain folder
 """
 
 url = "http://127.0.0.1:8000/upload_image/"
-folder_path = "images"  # folder path to the images
+folder_path = "../images"  # folder path to the images
 
 
 def get_file_list():
