@@ -153,14 +153,22 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             { error ->
-                Log.e("VOLLEY", "Volley Error: ${error.message}")
-
-                if (error.networkResponse != null) {
-                    val statusCode = error.networkResponse.statusCode
-                    val responseBody = error.networkResponse.data?.let { String(it) }
-                    Log.e("VOLLEY", "HTTP Status Code: $statusCode")
-                    Log.e("VOLLEY", "Error Response Body: $responseBody")
+                Log.e("VOLLEY", "No videos found in response")
+                val noResultsText = findViewById<TextView>(R.id.noResultsText)
+                runOnUiThread {
+                    noResultsText.apply {
+                        text = "No videos found for '$query' with datatype '$dataType' and emotion '$emotion' ."
+                        visibility = View.VISIBLE
+                        alpha = 1f
+                        animate()
+                            .alpha(0f)
+                            .setDuration(2000) // fade out duration 2s
+                            .setStartDelay(2000)
+                            .withEndAction { visibility = View.GONE }
+                            .start()
+                    }
                 }
+
             })
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
