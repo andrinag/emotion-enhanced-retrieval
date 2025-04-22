@@ -258,6 +258,7 @@ async def search_combined_face(query: str, emotion: str):
                 JOIN Face f ON f.embedding_id = te.embedding_id
             )
             SELECT 
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -281,6 +282,7 @@ async def search_combined_face(query: str, emotion: str):
         response = []
         for row in result:
             (
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -295,6 +297,7 @@ async def search_combined_face(query: str, emotion: str):
 
             if os.path.exists(full_path):
                 response.append({
+                    "embedding_id": embedding_id,
                     "video_path": full_path,
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
@@ -363,6 +366,7 @@ async def search_combined_asr(query: str, emotion: str):
                 LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
             )
             SELECT 
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -387,6 +391,7 @@ async def search_combined_asr(query: str, emotion: str):
         response = []
         for row in result:
             (
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -401,6 +406,7 @@ async def search_combined_asr(query: str, emotion: str):
 
             if os.path.exists(full_path):
                 response.append({
+                    "embedding_id": embedding_id,
                     "video_path": full_path,
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
@@ -471,6 +477,7 @@ async def search_combined_ocr(query: str, emotion: str):
                 LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
             )
             SELECT 
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -498,6 +505,7 @@ async def search_combined_ocr(query: str, emotion: str):
         response = []
         for row in result:
             (
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -515,6 +523,7 @@ async def search_combined_ocr(query: str, emotion: str):
             full_path = os.path.join(dir_1, location)
             if os.path.exists(full_path):
                 response.append({
+                    "embedding_id": embedding_id,
                     "video_path": full_path,
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
@@ -588,6 +597,7 @@ async def search_combined_all(query: str, emotion: str):
                 LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
             )
             SELECT 
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -620,6 +630,7 @@ async def search_combined_all(query: str, emotion: str):
         response = []
         for row in result:
             (
+                embedding_id,
                 location,
                 frame_time,
                 similarity,
@@ -633,6 +644,7 @@ async def search_combined_all(query: str, emotion: str):
             full_path = os.path.join(dir_1, location)
             if os.path.exists(full_path):
                 response.append({
+                    "embedding_id": embedding_id,
                     "video_path": full_path,
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
@@ -783,6 +795,7 @@ async def send_query_to_llama(query: str, emotion:str):
                         LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
                     )
                     SELECT 
+                        embedding_id,
                         location,
                         frame_time,
                         similarity,
@@ -815,6 +828,7 @@ async def send_query_to_llama(query: str, emotion:str):
             response = []
             for row in result:
                 (
+                    embedding_id,
                     location,
                     frame_time,
                     similarity,
@@ -828,6 +842,7 @@ async def send_query_to_llama(query: str, emotion:str):
                 full_path = os.path.join(dir_1, location)
                 if os.path.exists(full_path):
                     response.append({
+                        "embedding_id": embedding_id,
                         "video_path": full_path,
                         "frame_time": float(frame_time),
                         "similarity": round(float(similarity), 3),
@@ -848,6 +863,60 @@ async def send_query_to_llama(query: str, emotion:str):
             return JSONResponse({"error": str(e)}, status_code=500)
     else:
         raise Exception(f"Failed to get response from LLaMA. Status code: {response.status_code}")
+
+
+
+@app.get("/search_by_direction_pair/")
+async def search_by_direction_pair(source_id: int, target_id: int):
+    """
+    Computes direction vector from source to target embedding,
+    and returns results closest to that direction.
+    """
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT embedding FROM multimedia_embeddings WHERE id = %s", (source_id,))
+        row_a = cursor.fetchone()
+
+        cursor.execute("SELECT embedding FROM multimedia_embeddings WHERE id = %s", (target_id,))
+        row_b = cursor.fetchone()
+
+        if not row_a or not row_b:
+            raise HTTPException(status_code=404, detail="Embeddings not found.")
+
+        emb_a = np.array(row_a[0])
+        emb_b = np.array(row_b[0])
+        direction = normalize_embedding(emb_b - emb_a)
+
+        projected = normalize_embedding(emb_b + direction) # I guess you could also argue for emb_a + dir ...?
+
+        cursor.execute("""
+            SELECT 
+                me.id,
+                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                me.frame_time,
+                1 - (me.embedding <=> %s::vector) AS similarity
+            FROM multimedia_embeddings me
+            ORDER BY similarity DESC
+            LIMIT 10;
+        """, (projected.tolist(),))
+
+        results = cursor.fetchall()
+        cursor.close()
+
+        return [
+            {
+                "embedding_id": row[0],
+                "video_path": os.path.join(VIDEO_DIRECTORY, row[1]),
+                "frame_time": row[2],
+                "similarity": float(row[3])
+            }
+            for row in results if row[1]
+        ]
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 
 
 if __name__ == "__main__":
