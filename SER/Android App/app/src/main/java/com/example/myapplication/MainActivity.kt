@@ -91,19 +91,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun generateVideoThumbnail(videoUrl: String, timeMs: Long = 0): Bitmap? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(videoUrl, HashMap())
-            val frame = retriever.getFrameAtTime(timeMs * 1000) // microseconds
-            retriever.release()
-            frame
-        } catch (e: Exception) {
-            Log.e("Thumbnail", "Failed to generate thumbnail: ${e.message}")
-            null
-        }
-    }
 
+    /**
+     * Sends a query request, datatype (OCR, ASR and face) and the emotion to the search API, which then returns at most 10
+     * videos corresponding to the query, datatypes and emotion.
+     */
     fun sendQueryRequestWithSentiment(
         context: android.content.Context,
         query: String,
@@ -179,6 +171,11 @@ class MainActivity : AppCompatActivity() {
         requestQueue.add(stringRequest)
     }
 
+
+    /**
+     * Deprecated method for sending simple query requests to the search api. Simple in the sense
+     * of it only containing a query and no sentiment / emotion.
+     */
     fun sendQueryRequest(
         context: android.content.Context,
         query: String,
@@ -257,7 +254,7 @@ class MainActivity : AppCompatActivity() {
     private var lastSentTime = 0L // stores the last time image was sent
 
     /**
-     * starts the camera stream, sends image every 2s to the api
+     * starts the camera stream, sends image every 1s to the api
      */
     private fun startCameraStream() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)

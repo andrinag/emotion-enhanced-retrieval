@@ -75,6 +75,7 @@ class ResultsAdapter(
             intent.putExtra("annotated_image", item.annotatedImageUrl)
             intent.putExtra("currentQuery", query)
             intent.putExtra("emotion", emotion)
+            intent.putExtra("embedding_id", item.embeddingID)
             context.startActivity(intent)
         }
     }

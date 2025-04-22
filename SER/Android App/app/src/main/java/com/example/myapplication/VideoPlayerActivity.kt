@@ -58,6 +58,10 @@ class VideoPlayerActivity : AppCompatActivity() {
     var negativeSentimentCounter: Int = 0
 
 
+    /**
+     * Is called on creation of the activity and initializes UI elements, checks permissions,
+     * starts the videoplaying, starts the sentiment camera stream and creates an error listener.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_player)
@@ -72,7 +76,16 @@ class VideoPlayerActivity : AppCompatActivity() {
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
 
 
+        // checks if a currentEmbedding ID of the video that is playing is supplied
+        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        if (currentEmbeddingId != -1) {
+            fetchDirectionRecommendations(currentEmbeddingId)
+        } else {
+            Log.e("DIRECTION_SEARCH", "No embedding ID passed to the video player.")
+        }
 
+
+        // checks for permissions
         if (allPermissionsGranted()) {
             startCameraStream()
         } else {
@@ -106,6 +119,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             imageView.visibility = if (isChecked && !imageUrl.isNullOrBlank()) View.VISIBLE else View.GONE
         }
 
+        // initializes the media controller (play, pause button etc.)
         val mediaController = MediaController(this)
         mediaController.show(0)
         mediaController.setAnchorView(videoView)
@@ -132,6 +146,82 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 
 
+    /**
+     * Sends a query request to the search api with two separate IDs. Both of them are embedding IDs
+     * with the first ID being the one from the embedding of the last video played and the second
+     * one being the embedding ID of the current video played.
+     */
+    fun fetchDirectionRecommendations(selectedEmbeddingId: Int) {
+        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        if (currentEmbeddingId == -1) {
+            Log.e("DIRECTION_SEARCH", "Current embedding ID not found in intent.")
+            return
+        }
+
+        val url = "http://10.34.64.139:8001/search_by_direction_pair/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId"
+        Log.d("DIRECTION_SEARCH", "Fetching from URL: $url")
+
+        val requestQueue = Volley.newRequestQueue(this)
+        val stringRequest = StringRequest(
+            Request.Method.GET, url,
+            { response ->
+                try {
+                    val jsonArray = JSONArray(response)
+                    Log.d("DIRECTION_SEARCH", "Received ${jsonArray.length()} recommendations")
+
+                    val directionResults = mutableListOf<VideoResult>()
+                    val baseUrl = "http://10.34.64.139:8001"
+
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        val videoPath = baseUrl + obj.getString("video_path")
+                        val frameTime = obj.getDouble("frame_time")
+                        val similarity = obj.getDouble("similarity")
+                        val embeddingId = obj.getInt("embedding_id")
+
+                        directionResults.add(
+                            VideoResult(
+                                videoUrl = videoPath,
+                                frameTime = frameTime,
+                                annotatedImageUrl = null,
+                                embeddingID = embeddingId
+                            )
+                        )
+
+                        Log.d("DIRECTION_SEARCH", "Video: $videoPath, Frame Time: $frameTime, Similarity: $similarity, Embedding ID: $embeddingId")
+                    }
+
+                    runOnUiThread {
+                        val directionRecyclerView = findViewById<RecyclerView>(R.id.suggestionsRecyclerView)
+                        directionRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
+                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = "")
+                        findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
+                        directionRecyclerView.visibility = View.VISIBLE
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("DIRECTION_SEARCH", "Parsing error: ${e.message}")
+                }
+            },
+            { error ->
+                Log.e("DIRECTION_SEARCH", "Error: ${error.message}")
+                error.networkResponse?.let {
+                    val statusCode = it.statusCode
+                    val responseBody = String(it.data)
+                    Log.e("DIRECTION_SEARCH", "Status code: $statusCode, Body: $responseBody")
+                }
+            }
+        )
+
+        requestQueue.add(stringRequest)
+    }
+
+
+
+    /**
+     * sends a query request to the api that then generates an improved query with a large language
+     * model (tinyllama). The result is then sent back.
+     */
     fun sendQueryRequestLlama(
         context: android.content.Context,
         query: String,
@@ -153,19 +243,26 @@ class VideoPlayerActivity : AppCompatActivity() {
 
                     for (i in 0 until result.length()) {
                         val obj = result.getJSONObject(i)
+                        val embedding_id = obj.getInt("embedding_id")
                         val videoUrl = baseUrl + obj.getString("video_path")
                         val frameTime = obj.optDouble("frame_time", 0.0)
                         val annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
 
-                        videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage))
+                        videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage, embedding_id))
                     }
 
                     suggestionsAdapter = ResultsAdapter(videoResults, this, query, emotionSpinner)
                     suggestionsRecyclerView.adapter = suggestionsAdapter
 
+                    runOnUiThread {
+                        findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
+                        findViewById<RecyclerView>(R.id.suggestionsRecyclerView).visibility = View.VISIBLE
+                    }
+
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
                 }
+
 
             },
             { error ->
@@ -187,8 +284,12 @@ class VideoPlayerActivity : AppCompatActivity() {
         requestQueue.add(stringRequest)
     }
 
+
+    /**
+     * Method for sending images of the front camera to the sentiment API, which then returns
+     * the emotion and confidence of the user.
+     */
     fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
-        // TODO needs to be changed to the node adress
         val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
         val jsonBody = JSONObject()
         jsonBody.put("image", base64Image)
@@ -208,7 +309,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                         negativeSentimentCounter++
                         Log.d("LLAMA", "Negative sentiment detected. Count: $negativeSentimentCounter")
 
-                        if (negativeSentimentCounter >= 10) {
+                        if (negativeSentimentCounter >= 1) {
                             expectingAnswerLlama = true
 
                             val query = intent.getStringExtra("currentQuery")
@@ -218,13 +319,15 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 Log.e("LLAMA", "Missing query or emotion, not sending to LLaMA")
                                 return@Listener
                             }
-
+                            val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+                            fetchDirectionRecommendations(currentEmbeddingId)
+                            /**
                             sendQueryRequestLlama(this, query, emotionSpinner) { result ->
                                 Log.d("LLAMA", "LLaMA returned ${result.length()} results")
                                 adaptedQuery = result.toString()
                                 expectingAnswerLlama = false
                                 negativeSentimentCounter = 0 // Reset counter after success
-                            }
+                            }**/
                         }
                     }
 
@@ -271,6 +374,11 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     private var lastSentTime = 0L // stores the last time image was sent
 
+
+    /**
+     * Camera stream that is always running and captures an image of the face / frontcamera every
+     * second.
+     */
     private fun startCameraStream() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
@@ -313,6 +421,9 @@ class VideoPlayerActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    /**
+     * Shuts down the camera when the app is closed.
+     */
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
@@ -322,6 +433,10 @@ class VideoPlayerActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 10
     }
 
+
+    /**
+     * Converts an ImageProx to Base64 such that it can be sent to the sentiment API.
+     */
     fun imageProxyToBase64(image: ImageProxy): String {
         val yBuffer = image.planes[0].buffer // Y
         val vuBuffer = image.planes[2].buffer // VU
@@ -342,6 +457,9 @@ class VideoPlayerActivity : AppCompatActivity() {
         return Base64.encodeToString(byteArray, Base64.DEFAULT)
     }
 
+    /**
+     * Request all of the Permissions from the user.
+     */
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == Companion.REQUEST_CODE_PERMISSIONS) {
