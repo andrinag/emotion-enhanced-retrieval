@@ -870,7 +870,7 @@ async def send_query_to_llama(query: str, emotion:str):
 async def search_by_direction_pair(source_id: int, target_id: int):
     """
     Computes direction vector from source to target embedding,
-    and returns results closest to that direction.
+    and returns results closest to that direction, including annotated images.
     """
     cursor = conn.cursor()
     try:
@@ -886,15 +886,18 @@ async def search_by_direction_pair(source_id: int, target_id: int):
         emb_a = np.array(row_a[0])
         emb_b = np.array(row_b[0])
         direction = normalize_embedding(emb_b - emb_a)
-
-        projected = normalize_embedding(emb_b + direction) # I guess you could also argue for emb_a + dir ...?
+        projected = normalize_embedding(emb_b + direction)
 
         cursor.execute("""
             SELECT 
                 me.id,
                 (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
                 me.frame_time,
-                1 - (me.embedding <=> %s::vector) AS similarity
+                1 - (me.embedding <=> %s::vector) AS similarity,
+                COALESCE(
+                    (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
+                    (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
+                ) AS annotated_image
             FROM multimedia_embeddings me
             ORDER BY similarity DESC
             LIMIT 10;
@@ -908,7 +911,8 @@ async def search_by_direction_pair(source_id: int, target_id: int):
                 "embedding_id": row[0],
                 "video_path": os.path.join(VIDEO_DIRECTORY, row[1]),
                 "frame_time": row[2],
-                "similarity": float(row[3])
+                "similarity": float(row[3]),
+                "annotated_image": row[4] if row[4] else None
             }
             for row in results if row[1]
         ]
@@ -916,6 +920,7 @@ async def search_by_direction_pair(source_id: int, target_id: int):
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 
 
