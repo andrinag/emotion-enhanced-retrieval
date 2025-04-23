@@ -56,6 +56,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: ResultsAdapter
     var negativeSentimentCounter: Int = 0
+    val baseUrl = "http://10.34.64.139:8001"
 
 
     /**
@@ -107,17 +108,28 @@ class VideoPlayerActivity : AppCompatActivity() {
         val filename = Uri.parse(videoUrl).lastPathSegment ?: "Unknown Video"
         titleView.text = URLDecoder.decode(filename, "UTF-8")
 
-        // Load annotated image if present
-        if (!imageUrl.isNullOrBlank()) {
-            Glide.with(this)
-                .load(imageUrl)
-                .placeholder(android.R.drawable.ic_menu_report_image)
-                .into(imageView)
+        val imageAnnotation = findViewById<ImageView>(R.id.imageAnnotation)
+        val checkboxShowAnnotation = findViewById<CheckBox>(R.id.checkboxShowAnnotation)
+
+        imageUrl?.contains("null")?.let {
+            if (!it) {
+                // If the annotated image exists, load it and show the checkbox
+                Glide.with(this)
+                    .load(imageUrl)
+                    .placeholder(android.R.drawable.ic_menu_report_image)
+                    .into(imageAnnotation)
+
+                checkboxShowAnnotation.visibility = View.VISIBLE // Make checkbox visible
+                checkboxShowAnnotation.setOnCheckedChangeListener { _, isChecked ->
+                    imageAnnotation.visibility = if (isChecked) View.VISIBLE else View.GONE
+                }
+            } else {
+                // No annotated image: hide both the checkbox and the image
+                checkboxShowAnnotation.visibility = View.GONE
+                imageAnnotation.visibility = View.GONE
+            }
         }
 
-        checkbox.setOnCheckedChangeListener { _, isChecked ->
-            imageView.visibility = if (isChecked && !imageUrl.isNullOrBlank()) View.VISIBLE else View.GONE
-        }
 
         // initializes the media controller (play, pause button etc.)
         val mediaController = MediaController(this)
@@ -178,17 +190,24 @@ class VideoPlayerActivity : AppCompatActivity() {
                         val frameTime = obj.getDouble("frame_time")
                         val similarity = obj.getDouble("similarity")
                         val embeddingId = obj.getInt("embedding_id")
+                        //val annotated_image = obj.getString("annotated_image")
+                        var annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+                        if (annotatedImage.isNullOrBlank() || annotatedImage.contains("null")) {
+                            annotatedImage = null
+                        }
+
+
 
                         directionResults.add(
                             VideoResult(
                                 videoUrl = videoPath,
                                 frameTime = frameTime,
-                                annotatedImageUrl = null,
+                                annotatedImageUrl = annotatedImage,
                                 embeddingID = embeddingId
                             )
                         )
 
-                        Log.d("DIRECTION_SEARCH", "Video: $videoPath, Frame Time: $frameTime, Similarity: $similarity, Embedding ID: $embeddingId")
+                        Log.d("DIRECTION_SEARCH", "Video: $videoPath, Annotated Image:$annotatedImage Time: $frameTime, Similarity: $similarity, Embedding ID: $embeddingId")
                     }
 
                     runOnUiThread {
