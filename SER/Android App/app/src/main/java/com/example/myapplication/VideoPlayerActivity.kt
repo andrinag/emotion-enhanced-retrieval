@@ -1,6 +1,5 @@
 package com.example.myapplication
 
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -33,7 +32,6 @@ import com.android.volley.toolbox.HttpHeaderParser
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import com.bumptech.glide.Glide
-import com.example.myapplication.MainActivity
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -46,17 +44,13 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var videoView: VideoView
     private lateinit var progressBar: ProgressBar
     private lateinit var titleView: TextView
-    private lateinit var checkbox: CheckBox
-    private lateinit var imageView: ImageView
     private lateinit var cameraExecutor: ExecutorService
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     var userEmotion: String = "happy"
     var expectingAnswerLlama = false
-    var adaptedQuery = ""
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: ResultsAdapter
     var negativeSentimentCounter: Int = 0
-    val baseUrl = "http://10.34.64.139:8001"
 
 
     /**
@@ -70,8 +64,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         videoView = findViewById(R.id.videoPlayerView)
         progressBar = findViewById(R.id.loadingSpinner)
         titleView = findViewById(R.id.videoTitle)
-        checkbox = findViewById(R.id.checkboxShowAnnotation)
-        imageView = findViewById(R.id.imageAnnotation)
         cameraExecutor = Executors.newSingleThreadExecutor()
         suggestionsRecyclerView = findViewById(R.id.suggestionsRecyclerView)
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
@@ -91,7 +83,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             startCameraStream()
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS,
-                Companion.REQUEST_CODE_PERMISSIONS
+                REQUEST_CODE_PERMISSIONS
             )
         }
 
@@ -169,13 +161,15 @@ class VideoPlayerActivity : AppCompatActivity() {
             Log.e("DIRECTION_SEARCH", "Current embedding ID not found in intent.")
             return
         }
-
-        val url = "http://10.34.64.139:8001/search_by_direction_pair/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId"
+        val emotionSpinner = intent.getStringExtra("emotion") ?: ""
+        val dataType = intent.getStringExtra("dataType") ?: ""
+        Log.d("DATATYPE", dataType)
+        val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId"
         Log.d("DIRECTION_SEARCH", "Fetching from URL: $url")
 
         val requestQueue = Volley.newRequestQueue(this)
         val stringRequest = StringRequest(
-            Request.Method.GET, url,
+            Method.GET, url,
             { response ->
                 try {
                     val jsonArray = JSONArray(response)
@@ -190,7 +184,6 @@ class VideoPlayerActivity : AppCompatActivity() {
                         val frameTime = obj.getDouble("frame_time")
                         val similarity = obj.getDouble("similarity")
                         val embeddingId = obj.getInt("embedding_id")
-                        //val annotated_image = obj.getString("annotated_image")
                         var annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
                         if (annotatedImage.isNullOrBlank() || annotatedImage.contains("null")) {
                             annotatedImage = null
@@ -213,7 +206,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     runOnUiThread {
                         val directionRecyclerView = findViewById<RecyclerView>(R.id.suggestionsRecyclerView)
                         directionRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = "")
+                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = emotionSpinner, dataType = dataType)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
                         directionRecyclerView.visibility = View.VISIBLE
                     }
@@ -243,16 +236,17 @@ class VideoPlayerActivity : AppCompatActivity() {
      */
     fun sendQueryRequestLlama(
         context: android.content.Context,
-        query: String,
-        emotionSpinner: String,
-        callback: (JSONArray) -> Unit
+        query: String
     ) {
+        val emotionSpinner = intent.getStringExtra("emotion") ?: ""
+        val dataType = intent.getStringExtra("dataType") ?: ""
+        Log.d("DATATYPE", dataType)
         val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
         val stringRequest = StringRequest(
-            Request.Method.GET, url,
+            Method.GET, url,
             Response.Listener<String> { response ->
                 Log.i("LLAMA", "Success! Response: $response")
                 try {
@@ -270,7 +264,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                         videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage, embedding_id))
                     }
 
-                    suggestionsAdapter = ResultsAdapter(videoResults, this, query, emotionSpinner)
+                    suggestionsAdapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType)
                     suggestionsRecyclerView.adapter = suggestionsAdapter
 
                     runOnUiThread {
@@ -283,17 +277,17 @@ class VideoPlayerActivity : AppCompatActivity() {
                 }
 
 
-            },
-            { error ->
-                Log.e("LLAMA", "Volley Error: ${error.message}")
+            }
+        ) { error ->
+            Log.e("LLAMA", "Volley Error: ${error.message}")
 
-                if (error.networkResponse != null) {
-                    val statusCode = error.networkResponse.statusCode
-                    val responseBody = error.networkResponse.data?.let { String(it) }
-                    Log.e("LLAMA", "HTTP Status Code: $statusCode")
-                    Log.e("LLAMA", "Error Response Body: $responseBody")
-                }
-            })
+            if (error.networkResponse != null) {
+                val statusCode = error.networkResponse.statusCode
+                val responseBody = error.networkResponse.data?.let { String(it) }
+                Log.e("LLAMA", "HTTP Status Code: $statusCode")
+                Log.e("LLAMA", "Error Response Body: $responseBody")
+            }
+        }
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
             100000,
@@ -420,9 +414,6 @@ class VideoPlayerActivity : AppCompatActivity() {
                         if (currentTime - lastSentTime >= 1000) {
                             Log.d("CameraStream", "Sending image...")
 
-                            // val bitmap = imageProxyToBitmap(image)
-                            val bitmap = imageProxyToBase64(image)
-                            var response = sendPostRequestSentiment(this, bitmap)
                             lastSentTime = currentTime
                         }
                         image.close()
@@ -481,7 +472,7 @@ class VideoPlayerActivity : AppCompatActivity() {
      */
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == Companion.REQUEST_CODE_PERMISSIONS) {
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
                 startCameraStream()
             } else {

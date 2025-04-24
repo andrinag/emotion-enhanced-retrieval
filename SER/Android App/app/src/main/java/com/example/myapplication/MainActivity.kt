@@ -40,13 +40,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var editTextQuery: EditText
     private lateinit var buttonSearch: Button
+    private lateinit var settingsButton: Button
     private lateinit var cameraExecutor: ExecutorService
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     private lateinit var spinnerDataType: android.widget.Spinner
     private lateinit var spinnerEmotion: android.widget.Spinner
-    private lateinit var checkboxAnnotation: CheckBox
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
+    var allowDuplicateVideos = false;
+    var darkMode = false;
 
 
     /**
@@ -56,6 +58,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         editTextQuery = findViewById(R.id.editTextQuery)
+        settingsButton = findViewById(R.id.settingsButton)
         buttonSearch = findViewById(R.id.buttonSearch)
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
@@ -68,6 +71,12 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS,
                 Companion.REQUEST_CODE_PERMISSIONS
             )
+        }
+
+        // Listener for the Settings Button
+        settingsButton.setOnClickListener{
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
         }
 
         buttonSearch.setOnClickListener {
@@ -138,6 +147,7 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("results_json", result.toString())
                         intent.putExtra("currentQuery", query)
                         intent.putExtra("emotion", emotionSpinner)
+                        intent.putExtra("dataType", dataType)
                         startActivity(intent)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {

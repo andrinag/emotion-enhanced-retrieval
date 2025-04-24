@@ -20,6 +20,18 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="37dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/settingsButton"
+                android:layout_width="52dp"
+                android:layout_height="wrap_content"
+                android:text="Settings" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/textView2"
             android:layout_width="match_parent"

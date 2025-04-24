@@ -20,7 +20,8 @@ class ResultsAdapter(
     private val items: List<VideoResult>,
     private val context: Context,
     private val query: String,
-    private val emotion: String
+    private val emotion: String,
+    private val dataType: String
 ) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -33,6 +34,10 @@ class ResultsAdapter(
         return ViewHolder(view)
     }
 
+    /**
+     * Generates a Video Thumbnail for the videos that have no annotated image or frame location.
+     * Should technically never be called, but is left in code for emergencies.
+     */
     fun generateVideoThumbnail(videoUrl: String, frameTimeMillis: Long): Bitmap? {
         return try {
             val retriever = MediaMetadataRetriever()
@@ -76,6 +81,7 @@ class ResultsAdapter(
             intent.putExtra("currentQuery", query)
             intent.putExtra("emotion", emotion)
             intent.putExtra("embedding_id", item.embeddingID)
+            intent.putExtra("dataType", dataType)
             context.startActivity(intent)
         }
     }
