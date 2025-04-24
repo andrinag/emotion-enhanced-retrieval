@@ -2,6 +2,7 @@ package com.example.myapplication
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
@@ -22,6 +23,7 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -48,7 +50,7 @@ class MainActivity : AppCompatActivity() {
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
     var allowDuplicateVideos = false;
-    var darkMode = false;
+    var darkMode = true;
 
 
     /**
@@ -99,6 +101,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
+        val darkMode = sharedPref.getBoolean("darkMode", false)
+        val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+
+        if (darkMode && currentMode != Configuration.UI_MODE_NIGHT_YES) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        } else if (!darkMode && currentMode != Configuration.UI_MODE_NIGHT_NO) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+    }
+
 
 
     /**

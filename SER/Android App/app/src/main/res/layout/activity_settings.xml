@@ -55,9 +55,10 @@
             android:id="@+id/darkmode"
             android:layout_width="match_parent"
             android:layout_height="65dp"
+            android:showText="false"
             android:text="Darkmode"
             android:textSize="14sp"
-            tools:checked="false" />
+            tools:checked="true" />
 
         <LinearLayout
             android:layout_width="match_parent"

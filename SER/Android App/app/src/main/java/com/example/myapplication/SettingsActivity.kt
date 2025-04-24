@@ -6,33 +6,43 @@ import android.util.Log
 import android.view.MenuItem
 import android.widget.Switch
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var switchDuplicateVideos: Switch
     private var duplicateVideos = true;
     private lateinit var switchDarkMode: Switch
-    private var darkMode = false;
+    private var darkMode = true;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)  // Enables the back arrow
 
-        // Duplicate Videos Switch
+        switchDarkMode = findViewById(R.id.darkmode)
         switchDuplicateVideos = findViewById(R.id.duplicateVideos)
+
+        val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
+        darkMode = sharedPref.getBoolean("darkMode", false)
+        switchDarkMode.isChecked = darkMode
+
         switchDuplicateVideos.setOnCheckedChangeListener { _, isChecked ->
             duplicateVideos = isChecked
             Log.d("SWITCH", "allowed duplicate Videos $duplicateVideos")
         }
 
-        // Dark Mode Switch
-        switchDarkMode = findViewById(R.id.darkmode)
         switchDarkMode.setOnCheckedChangeListener { _, isChecked ->
             darkMode = isChecked
-            Log.d("SWITCH", "allowed darkMode $darkMode")
+
+            // Save preference
+            with(sharedPref.edit()) {
+                putBoolean("darkMode", darkMode)
+                apply()
+            }
         }
     }
+
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
