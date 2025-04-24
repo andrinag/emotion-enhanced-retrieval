@@ -980,13 +980,34 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                 COALESCE({image_col}, me.frame_location) AS annotated_image
             FROM multimedia_embeddings me
             JOIN {join_table} ON {join_condition}
-            WHERE LOWER({emotion_col}) = LOWER(%s)
+            WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
             ORDER BY similarity DESC
             LIMIT 10;
         """
 
         cursor.execute(query, (projected.tolist(), emotion))
         results = cursor.fetchall()
+
+        # if there are no results, then ignore the datatype and emotion filter and just return nearest neighbors
+        if len(results) == 0:
+            cursor.execute("""
+                        SELECT 
+                            me.id,
+                            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                            me.frame_time,
+                            1 - (me.embedding <=> %s::vector) AS similarity,
+                            COALESCE(
+                                (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
+                                (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
+                                me.frame_location
+                            ) AS annotated_image
+                        FROM multimedia_embeddings me
+                        ORDER BY similarity DESC
+                        LIMIT 10;
+                    """, (projected.tolist(),))
+
+            results = cursor.fetchall()
+
         cursor.close()
 
         return [
