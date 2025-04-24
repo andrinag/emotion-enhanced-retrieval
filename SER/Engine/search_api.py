@@ -343,6 +343,7 @@ async def search_combined_asr(query: str, emotion: str):
                     me.id AS embedding_id,
                     mo.location,
                     me.frame_time,
+                    me.frame_location,
                     1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
@@ -355,6 +356,7 @@ async def search_combined_asr(query: str, emotion: str):
                     te.location,
                     te.frame_time,
                     te.similarity,
+                    te.frame_location,
                     COALESCE(a.emotion, '') AS emotion,
                     COALESCE(a.confidence, 0.0) AS confidence,
                     COALESCE(a.sentiment, '') AS sentiment,
@@ -370,6 +372,7 @@ async def search_combined_asr(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 emotion_match,
                 combined_score,
@@ -394,6 +397,7 @@ async def search_combined_asr(query: str, emotion: str):
             (
                 embedding_id,
                 location,
+                frame_location,
                 frame_time,
                 similarity,
                 sentiment_match,
@@ -410,6 +414,7 @@ async def search_combined_asr(query: str, emotion: str):
                     "embedding_id": embedding_id,
                     "video_path": full_path,
                     "frame_time": float(frame_time),
+                    "annotated_image": frame_location,
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
