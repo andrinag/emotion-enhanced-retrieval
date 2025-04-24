@@ -10,8 +10,6 @@ frame INTEGER,
 frame_time FLOAT,
 frame_location VARCHAR(255),
 embedding vector(512),
-tsne_x DOUBLE PRECISION,
-tsne_y DOUBLE PRECISION,
 FOREIGN KEY(object_id) REFERENCES multimedia_objects(object_id)
 );
 
@@ -50,9 +48,3 @@ confidence FLOAT,
 sentiment VARCHAR(30),
 FOREIGN KEY (embedding_id) REFERENCES multimedia_embeddings(id)
 );
-
-
--- optional for old schema adaption --
-ALTER TABLE multimedia_embeddings
-ADD COLUMN tsne_x DOUBLE PRECISION,
-ADD COLUMN tsne_y DOUBLE PRECISION;
