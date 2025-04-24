@@ -871,7 +871,8 @@ async def send_query_to_llama(query: str, emotion:str):
 async def search_by_direction_pair(source_id: int, target_id: int):
     """
     Computes direction vector from source to target embedding,
-    and returns results closest to that direction, including annotated images.
+    and returns results closest to that direction, including annotated images. If the annotated image is null, then
+    the frame image is returned. The reason for this is that a image is needed for the thumbnail of the video.
     """
     cursor = conn.cursor()
     try:
@@ -923,6 +924,80 @@ async def search_by_direction_pair(source_id: int, target_id: int):
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
 
+
+@app.get("/search_by_direction_pair/{datatype}/{emotion}")
+async def search_by_direction_pair(source_id: int, target_id: int, datatype: str, emotion: str):
+    """
+    Computes direction vector from source to target embedding,
+    filters results by datatype and emotion that are given by the user in the app.
+    """
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT embedding FROM multimedia_embeddings WHERE id = %s", (source_id,))
+        row_a = cursor.fetchone()
+
+        cursor.execute("SELECT embedding FROM multimedia_embeddings WHERE id = %s", (target_id,))
+        row_b = cursor.fetchone()
+
+        if not row_a or not row_b:
+            raise HTTPException(status_code=404, detail="Embeddings not found.")
+
+        emb_a = np.array(row_a[0])
+        emb_b = np.array(row_b[0])
+        direction = normalize_embedding(emb_b - emb_a)
+        projected = normalize_embedding(emb_b + direction)
+
+        if datatype == "face":
+            join_table = "Face f"
+            emotion_col = "f.emotion"
+            image_col = "f.path_annotated_faces"
+            join_condition = "f.embedding_id = me.id"
+        elif datatype == "ocr":
+            join_table = "OCR o"
+            emotion_col = "o.emotion"
+            image_col = "o.path_annotated_location"
+            join_condition = "o.embedding_id = me.id"
+        elif datatype == "asr":
+            join_table = "ASR a"
+            emotion_col = "a.emotion"
+            image_col = "NULL"  # ASR has no image
+            join_condition = "a.embedding_id = me.id"
+        else:
+            raise HTTPException(status_code=400, detail="Invalid datatype")
+
+        # Dynamic query building for the datatypes and emotions
+        query = f"""
+            SELECT 
+                me.id,
+                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                me.frame_time,
+                1 - (me.embedding <=> %s::vector) AS similarity,
+                COALESCE({image_col}, me.frame_location) AS annotated_image
+            FROM multimedia_embeddings me
+            JOIN {join_table} ON {join_condition}
+            WHERE LOWER({emotion_col}) = LOWER(%s)
+            ORDER BY similarity DESC
+            LIMIT 10;
+        """
+
+        cursor.execute(query, (projected.tolist(), emotion))
+        results = cursor.fetchall()
+        cursor.close()
+
+        return [
+            {
+                "embedding_id": row[0],
+                "video_path": os.path.join(VIDEO_DIRECTORY, row[1]),
+                "frame_time": row[2],
+                "similarity": float(row[3]),
+                "annotated_image": row[4] if row[4] else None
+            }
+            for row in results if row[1]
+        ]
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 
