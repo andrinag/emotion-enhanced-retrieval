@@ -116,7 +116,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
     /**
      * Sends a query request, datatype (OCR, ASR and face) and the emotion to the search API, which then returns at most 10
      * videos corresponding to the query, datatypes and emotion.

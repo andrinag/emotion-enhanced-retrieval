@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -10,6 +11,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
+import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -60,6 +62,8 @@ class VideoPlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_player)
+
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)  // Enables the back arrow
 
         videoView = findViewById(R.id.videoPlayerView)
         progressBar = findViewById(R.id.loadingSpinner)
@@ -484,5 +488,18 @@ class VideoPlayerActivity : AppCompatActivity() {
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                // Send results back to MainActivity when clicking on the back arrow
+                val resultIntent = Intent()
+                setResult(RESULT_OK, resultIntent)
+                finish()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }

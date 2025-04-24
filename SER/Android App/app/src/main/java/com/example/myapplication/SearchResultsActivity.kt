@@ -1,7 +1,9 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -22,6 +24,7 @@ class SearchResultsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_search_results)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)  // Enables the back arrow
 
         recyclerView = findViewById(R.id.resultsRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -50,5 +53,18 @@ class SearchResultsActivity : AppCompatActivity() {
         adapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType) // pass the query to adapter
 
         recyclerView.adapter = adapter
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                // Send results back to MainActivity when clicking on the back arrow
+                val resultIntent = Intent()
+                setResult(RESULT_OK, resultIntent)
+                finish()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }
