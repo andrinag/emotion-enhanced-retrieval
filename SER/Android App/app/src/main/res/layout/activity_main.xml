@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/windowBackground"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    android:background="?android:attr/windowBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,138 +11,140 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- Top Actions (Settings & Help) -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="128dp">
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/helpButton"
-                android:layout_width="47dp"
-                android:layout_height="58dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_weight="1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:backgroundTint="?attr/colorPrimary"
-                android:paddingStart="24dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="24dp"
-                android:paddingBottom="12dp"
-                android:textColor="@android:color/white"
-                android:textSize="16sp"
-                app:elevation="0dp"
+                android:text="Help"
+                app:cornerRadius="24dp"
                 app:icon="@drawable/help_24px"
-                app:iconGravity="textTop"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.951"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintEnd_toStartOf="@+id/settingsButton"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                android:layout_marginEnd="8dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/settingsButton"
-                android:layout_width="47dp"
-                android:layout_height="58dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="8dp"
-                android:backgroundTint="?attr/colorPrimary"
-                android:paddingStart="24dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="24dp"
-                android:paddingBottom="12dp"
-                android:textColor="@android:color/white"
-                android:textSize="16sp"
-                app:elevation="0dp"
-                app:icon="@drawable/ic_settings"
-                app:iconGravity="textTop"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.951"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/helpButton" />
-
-            <TextView
-                android:id="@+id/text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:gravity="center"
-                android:text="Sentiment is being measured"
-                android:textAlignment="center"
-                android:textColor="@color/purple_700"
-                android:textSize="18sp"
-                tools:layout_editor_absoluteX="30dp"
-                tools:layout_editor_absoluteY="16dp" />
+                android:backgroundTint="?attr/colorPrimary"
+                android:text="Settings"
+                app:cornerRadius="24dp"
+                app:icon="@drawable/ic_settings"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="right"
-            android:orientation="vertical">
-
-        </LinearLayout>
-
-
-        <LinearLayout
+        <!-- Sentiment Status -->
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingBottom="8dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="24dp">
 
-            <EditText
-                android:id="@+id/editTextQuery"
-                style="@android:style/Widget.Holo.EditText"
-                android:layout_width="322dp"
-                android:layout_height="51dp"
-                android:layout_weight="4"
-                android:hint="Enter search query"
-                android:inputType="text"
-                android:padding="8dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/buttonSearch"
-                android:layout_width="wrap_content"
-                android:layout_height="58dp"
-                android:layout_gravity="center_horizontal|center_vertical"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
-                android:layout_weight="4"
-                android:backgroundTint="?attr/colorPrimary"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingStart="24dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="24dp"
-                android:paddingBottom="12dp"
-                android:textColor="@android:color/white"
-                android:textSize="16sp"
-                app:elevation="0dp"
-                app:icon="@drawable/search_24px"
-                app:iconGravity="textTop" />
+                android:padding="16dp">
 
-        </LinearLayout>
+                <ImageView
+                    android:id="@+id/imageView5"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:src="@drawable/familiar_face_and_zone_24px"
+                    android:layout_marginEnd="16dp"/>
 
-        <LinearLayout
+                <TextView
+                    android:id="@+id/text"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Sentiment is being measured"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="18sp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Spinners Card -->
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="24dp">
 
-
-            <Spinner
-                android:id="@+id/spinnerDataType"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:entries="@array/data_type_array" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp">
 
-            <Spinner
-                android:id="@+id/spinnerSentiment"
-                android:layout_width="0dp"
+                <Spinner
+                    android:id="@+id/spinnerSentiment"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:entries="@array/emotion_type_array"/>
+
+                <Spinner
+                    android:id="@+id/spinnerDataType"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:entries="@array/data_type_array"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Search Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:entries="@array/emotion_type_array" />
-        </LinearLayout>
+                android:orientation="vertical"
+                android:padding="16dp">
 
+                <EditText
+                    android:id="@+id/editTextQuery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Enter search query"
+                    android:backgroundTint="?attr/colorPrimary"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:padding="8dp"
+                    android:layout_marginBottom="12dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonSearch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="?attr/colorPrimary"
+                    android:text="Search"
+                    android:textColor="?attr/colorOnPrimary"
+                    app:cornerRadius="16dp"
+                    app:icon="@drawable/search_24px"
+                    android:layout_gravity="center_horizontal"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- No Results Text -->
         <TextView
             android:id="@+id/noResultsText"
             android:layout_width="wrap_content"
@@ -153,7 +154,7 @@
             android:textSize="18sp"
             android:textColor="@android:color/holo_red_dark"
             android:layout_gravity="center"
-            />
+            android:layout_marginTop="16dp"/>
 
     </LinearLayout>
 </ScrollView>
