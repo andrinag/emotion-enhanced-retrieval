@@ -59,7 +59,7 @@
                 android:padding="16dp">
 
                 <ImageView
-                    android:id="@+id/imageView5"
+                    android:id="@+id/sentimentIcon"
                     android:layout_width="50dp"
                     android:layout_height="50dp"
                     android:src="@drawable/familiar_face_and_zone_24px"

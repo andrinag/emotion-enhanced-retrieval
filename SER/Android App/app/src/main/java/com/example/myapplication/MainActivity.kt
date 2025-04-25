@@ -398,6 +398,18 @@ class MainActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         findViewById<TextView>(R.id.text).text = "Sentiment: $sentiment\nEmotion: $userEmotion"
+                        val sentimentIcon = findViewById<ImageView>(R.id.sentimentIcon)
+                        when (userEmotion.lowercase()) {
+                            "happy" -> sentimentIcon.setImageResource(R.drawable.mood_24px)
+                            "sad" -> sentimentIcon.setImageResource(R.drawable.mood_bad_24px)
+                            "angry" -> sentimentIcon.setImageResource(R.drawable.sentiment_extremely_dissatisfied_24px)
+                            "neutral" -> sentimentIcon.setImageResource(R.drawable.sentiment_neutral_24px)
+                            "surprise" -> sentimentIcon.setImageResource(R.drawable.featured_seasonal_and_gifts_24px)
+                            "fear" -> sentimentIcon.setImageResource(R.drawable.sentiment_very_dissatisfied_24px)
+                            "disgust" -> sentimentIcon.setImageResource(R.drawable.sentiment_stressed_24px)
+                            else -> sentimentIcon.setImageResource(R.drawable.sentiment_neutral_24px)
+                        }
+
                     }
 
                 } catch (e: Exception) {
