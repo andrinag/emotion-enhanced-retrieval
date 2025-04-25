@@ -10,19 +10,19 @@
         android:orientation="vertical"
         android:padding="8dp">
 
-    <TextView
-        android:id="@+id/text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="10dp"
-        android:gravity="center"
-        android:text="Sentiment is being measured"
-        android:textAlignment="center"
-        android:textColor="@color/purple_700"
-        android:textSize="18sp" />
+        <TextView
+            android:id="@+id/text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="10dp"
+            android:gravity="center"
+            android:text="Sentiment is being measured"
+            android:textAlignment="center"
+            android:textColor="@color/purple_700"
+            android:textSize="18sp" />
 
-    <!-- Video title -->
+        <!-- Video title -->
         <TextView
             android:id="@+id/videoTitle"
             android:layout_width="match_parent"
@@ -34,37 +34,33 @@
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="34sp" />
 
-    <!-- Checkbox for toggling image -->
-
-    <!-- Video container -->
-
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="258dp"
-        android:layout_marginBottom="12dp">
-
-        <VideoView
-            android:id="@+id/videoPlayerView"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="258dp"
+            android:layout_marginBottom="12dp">
 
-        <ProgressBar
-            android:id="@+id/loadingSpinner"
-            style="?android:attr/progressBarStyleLarge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center" />
-    </FrameLayout>
+            <VideoView
+                android:id="@+id/videoPlayerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
 
-    <!-- Annotated image shown below the video -->
-    <ImageView
-        android:id="@+id/imageAnnotation"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:layout_marginBottom="24dp"
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter"
-        android:visibility="gone" />
+            <ProgressBar
+                android:id="@+id/loadingSpinner"
+                style="?android:attr/progressBarStyleLarge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+        </FrameLayout>
+
+        <!-- Annotated image shown below the video -->
+        <ImageView
+            android:id="@+id/imageAnnotation"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginBottom="24dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
 
         <CheckBox
             android:id="@+id/checkboxShowAnnotation"

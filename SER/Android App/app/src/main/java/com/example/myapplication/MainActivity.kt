@@ -43,14 +43,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var editTextQuery: EditText
     private lateinit var buttonSearch: Button
     private lateinit var settingsButton: Button
+    private lateinit var helpButton: Button
     private lateinit var cameraExecutor: ExecutorService
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     private lateinit var spinnerDataType: android.widget.Spinner
     private lateinit var spinnerEmotion: android.widget.Spinner
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
-    var allowDuplicateVideos = false;
-    var darkMode = true;
 
 
     /**
@@ -61,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         editTextQuery = findViewById(R.id.editTextQuery)
         settingsButton = findViewById(R.id.settingsButton)
+        helpButton = findViewById(R.id.helpButton)
         buttonSearch = findViewById(R.id.buttonSearch)
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
@@ -78,6 +78,12 @@ class MainActivity : AppCompatActivity() {
         // Listener for the Settings Button
         settingsButton.setOnClickListener{
             val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
+        // Listener for the Help Button
+        helpButton.setOnClickListener{
+            val intent = Intent(this, HelpActivity::class.java)
             startActivity(intent)
         }
 

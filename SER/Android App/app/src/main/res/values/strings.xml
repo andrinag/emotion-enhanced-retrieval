@@ -1,10 +1,9 @@
 <resources>
-    <string name="app_name">Emotion Enhanced Retrieval Engine</string>
     <string-array name="data_type_array">
+        <item>all</item>
+        <item>face</item>
         <item>ocr</item>
         <item>asr</item>
-        <item>face</item>
-        <item>all</item>
     </string-array>
 
     <string-array name="emotion_type_array">
@@ -22,6 +21,8 @@
     <string name="app_explanation">
         Enter your search query and choose the emotion.\nYou can specify where it should be detected: in faces, speech (asr), text (ocr) or all of them combined.
     </string>
+    <string name="welcome"><![CDATA[Welcome to Retri<3er]]></string>
+    <string name="app_name"><![CDATA[Retri<3ver]]></string>
 
 
 </resources>
