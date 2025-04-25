@@ -72,5 +72,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("com.github.bumptech.glide:glide:4.15.1")
+    implementation("com.google.android.material:material:1.9.0")
+
 
 }

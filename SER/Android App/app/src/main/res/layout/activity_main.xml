@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?android:attr/windowBackground"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -10,34 +12,68 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
-            android:id="@+id/textView"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="51dp"
-            android:text="@string/app_title"
-            android:textAlignment="center"
-            android:textColor="#000000"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_height="128dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/helpButton"
+                android:layout_width="47dp"
+                android:layout_height="58dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_weight="1"
+                android:backgroundTint="?attr/colorPrimary"
+                android:paddingStart="24dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="24dp"
+                android:paddingBottom="12dp"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                app:elevation="0dp"
+                app:icon="@drawable/help_24px"
+                app:iconGravity="textTop"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.951"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/settingsButton"
+                android:layout_width="47dp"
+                android:layout_height="58dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="?attr/colorPrimary"
+                android:paddingStart="24dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="24dp"
+                android:paddingBottom="12dp"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                app:elevation="0dp"
+                app:icon="@drawable/ic_settings"
+                app:iconGravity="textTop"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.951"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/helpButton" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="37dp"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:gravity="right"
+            android:orientation="vertical">
 
-            <Button
-                android:id="@+id/settingsButton"
-                android:layout_width="52dp"
-                android:layout_height="wrap_content"
-                android:text="Settings" />
         </LinearLayout>
+
 
         <TextView
             android:id="@+id/textView2"
             android:layout_width="match_parent"
             android:layout_height="91dp"
             android:text="@string/app_explanation"
-            android:textColor="#020202"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="16sp" />
 
         <TextView
@@ -86,20 +122,33 @@
             <EditText
                 android:id="@+id/editTextQuery"
                 style="@android:style/Widget.Holo.EditText"
-                android:layout_width="0dp"
+                android:layout_width="322dp"
                 android:layout_height="51dp"
                 android:layout_weight="4"
                 android:hint="Enter search query"
                 android:inputType="text"
                 android:padding="8dp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonSearch"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="#7BC6D0"
-                android:text="Search" />
+                android:layout_width="wrap_content"
+                android:layout_height="58dp"
+                android:layout_gravity="center_horizontal|center_vertical"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:layout_weight="4"
+                android:backgroundTint="?attr/colorPrimary"
+                android:gravity="center_vertical"
+                android:paddingStart="24dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="24dp"
+                android:paddingBottom="12dp"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                app:elevation="0dp"
+                app:icon="@drawable/search_24px"
+                app:iconGravity="textTop" />
+
         </LinearLayout>
 
         <TextView

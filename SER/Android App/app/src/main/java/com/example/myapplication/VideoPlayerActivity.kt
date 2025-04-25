@@ -418,6 +418,9 @@ class VideoPlayerActivity : AppCompatActivity() {
                         if (currentTime - lastSentTime >= 1000) {
                             Log.d("CameraStream", "Sending image...")
 
+                            // val bitmap = imageProxyToBitmap(image)
+                            val bitmap = imageProxyToBase64(image)
+                            var response = sendPostRequestSentiment(this, bitmap)
                             lastSentTime = currentTime
                         }
                         image.close()

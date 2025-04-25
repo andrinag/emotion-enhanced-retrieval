@@ -25,7 +25,7 @@
         </activity>
         <activity android:name=".SearchResultsActivity" />
         <activity android:name=".VideoPlayerActivity" />
-        <activity android:name=".SettingsActivity" />
+        <activity android:name=".ui.SettingsActivity" />
     </application>
 
 

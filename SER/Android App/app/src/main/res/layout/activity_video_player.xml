@@ -23,16 +23,16 @@
         android:textSize="18sp" />
 
     <!-- Video title -->
-    <TextView
-        android:id="@+id/videoTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#00222222"
-        android:padding="16dp"
-        android:text="Video Title"
-        android:textAlignment="center"
-        android:textColor="#FC000000"
-        android:textSize="34sp" />
+        <TextView
+            android:id="@+id/videoTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#00222222"
+            android:padding="16dp"
+            android:text="Video Title"
+            android:textAlignment="center"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="34sp" />
 
     <!-- Checkbox for toggling image -->
 
@@ -66,14 +66,14 @@
         android:scaleType="fitCenter"
         android:visibility="gone" />
 
-    <CheckBox
-        android:id="@+id/checkboxShowAnnotation"
-        android:layout_width="393dp"
-        android:layout_height="43dp"
-        android:padding="8dp"
-        android:text="Show annotated image"
-        android:textColor="#000000"
-        android:textSize="20sp" />
+        <CheckBox
+            android:id="@+id/checkboxShowAnnotation"
+            android:layout_width="393dp"
+            android:layout_height="43dp"
+            android:padding="8dp"
+            android:text="Show annotated image"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="20sp" />
 
         <TextView
             android:id="@+id/suggestionsLabel"
