@@ -36,6 +36,7 @@ app = FastAPI()
 app.mount("/media/V3C/V3C1/video-480p/", StaticFiles(directory="/media/V3C/V3C1/video-480p/"), name="videos")
 app.mount("/faces", StaticFiles(directory="./faces"), name="faces")
 app.mount("/frames", StaticFiles(directory="./frames"), name="frames")
+app.mount("/ocr_visualizations", StaticFiles(directory="./ocr_visualizations"), name="ocr_visualizations")
 #locally
 # app.mount("/videos", StaticFiles(directory="./videos"), name="videos")
 
