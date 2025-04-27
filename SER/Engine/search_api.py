@@ -544,7 +544,7 @@ async def search_combined_ocr(query: str, emotion: str):
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
-                    "ocr_annotated_image": annotated_path if annotated_path else frame_location,
+                    "annotated_image": annotated_path if annotated_path else frame_location,
                     "ocr_text": ocr_text,
                     "ocr_emotion": emotion,
                     "ocr_sentiment": sentiment_label,
