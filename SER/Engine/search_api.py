@@ -235,6 +235,7 @@ async def search_combined_face(query: str, emotion: str):
                     me.id AS embedding_id,
                     mo.location,
                     me.frame_time,
+                    me.frame_location,
                     1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
@@ -246,6 +247,7 @@ async def search_combined_face(query: str, emotion: str):
                     te.embedding_id,
                     te.location,
                     te.frame_time,
+                    te.frame_location,
                     te.similarity,
                     f.emotion,
                     f.confidence,
@@ -262,6 +264,7 @@ async def search_combined_face(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 emotion_match,
                 combined_score,
@@ -286,6 +289,7 @@ async def search_combined_face(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 sentiment_match,
                 final_score,
@@ -304,7 +308,7 @@ async def search_combined_face(query: str, emotion: str):
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
-                    "annotated_image": annotated_path if annotated_path else None,
+                    "annotated_image": annotated_path if annotated_path else frame_location,
                     "face_emotion": emotion,
                     "face_confidence": round(float(confidence), 3) if confidence is not None else None
                 })
@@ -452,6 +456,7 @@ async def search_combined_ocr(query: str, emotion: str):
                     me.id AS embedding_id,
                     mo.location,
                     me.frame_time,
+                    me.frame_location,
                     1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
@@ -463,6 +468,7 @@ async def search_combined_ocr(query: str, emotion: str):
                     te.embedding_id,
                     te.location,
                     te.frame_time,
+                    te.frame_location,
                     te.similarity,
                     COALESCE(o.emotion, '') AS emotion,
                     COALESCE(o.sentiment, '') AS sentiment,
@@ -486,6 +492,7 @@ async def search_combined_ocr(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 emotion_match,
                 combined_score,
@@ -514,6 +521,7 @@ async def search_combined_ocr(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 sentiment_match,
                 final_score,
@@ -535,7 +543,7 @@ async def search_combined_ocr(query: str, emotion: str):
                     "similarity": round(float(similarity), 3),
                     "sentiment_match": float(sentiment_match),
                     "final_score": round(float(final_score), 3),
-                    "ocr_annotated_image": annotated_path if annotated_path else None,
+                    "ocr_annotated_image": annotated_path if annotated_path else frame_location,
                     "ocr_text": ocr_text,
                     "ocr_emotion": emotion,
                     "ocr_sentiment": sentiment_label,
@@ -575,6 +583,7 @@ async def search_combined_all(query: str, emotion: str):
                     me.id AS embedding_id,
                     mo.location,
                     me.frame_time,
+                    me.frame_location,
                     1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
@@ -586,6 +595,7 @@ async def search_combined_all(query: str, emotion: str):
                     te.embedding_id,
                     te.location,
                     te.frame_time,
+                    te.frame_location,
                     te.similarity,
                     COALESCE(f.emotion, '') AS face_emotion,
                     COALESCE(f.confidence, 0.0) AS face_confidence,
@@ -606,6 +616,7 @@ async def search_combined_all(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 annotated_image,
                 face_emotion, face_confidence,
@@ -639,6 +650,7 @@ async def search_combined_all(query: str, emotion: str):
                 embedding_id,
                 location,
                 frame_time,
+                frame_location,
                 similarity,
                 annotated_image,
                 face_emotion, face_confidence,
@@ -655,7 +667,7 @@ async def search_combined_all(query: str, emotion: str):
                     "frame_time": float(frame_time),
                     "similarity": round(float(similarity), 3),
                     "final_score": round(float(combined_score), 3),
-                    "annotated_image": annotated_image if annotated_image else None,
+                    "annotated_image": annotated_image if annotated_image else frame_location,
                     "face_emotion": face_emotion,
                     "face_confidence": round(float(face_confidence), 3),
                     "asr_emotion": asr_emotion,
