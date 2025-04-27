@@ -29,14 +29,17 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
+import com.google.android.material.button.MaterialButton
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import java.util.Random
 
 class MainActivity : AppCompatActivity() {
 
@@ -48,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
     private lateinit var spinnerDataType: android.widget.Spinner
     private lateinit var spinnerEmotion: android.widget.Spinner
+    private lateinit var refreshButton: Button
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
 
@@ -61,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         editTextQuery = findViewById(R.id.editTextQuery)
         settingsButton = findViewById(R.id.settingsButton)
         helpButton = findViewById(R.id.helpButton)
+        refreshButton = findViewById(R.id.refreshButton)
         buttonSearch = findViewById(R.id.buttonSearch)
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
@@ -70,19 +75,20 @@ class MainActivity : AppCompatActivity() {
         if (allPermissionsGranted()) {
             startCameraStream()
         } else {
-            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS,
+            ActivityCompat.requestPermissions(
+                this, REQUIRED_PERMISSIONS,
                 Companion.REQUEST_CODE_PERMISSIONS
             )
         }
 
         // Listener for the Settings Button
-        settingsButton.setOnClickListener{
+        settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
 
         // Listener for the Help Button
-        helpButton.setOnClickListener{
+        helpButton.setOnClickListener {
             val intent = Intent(this, HelpActivity::class.java)
             startActivity(intent)
         }
@@ -112,12 +118,95 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         val darkMode = sharedPref.getBoolean("darkMode", false)
+        val cheerupMode = sharedPref.getBoolean("cheerupMode", false)
+        val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
+        val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
+        Log.d("CHEERUP", "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated")
+
+
+        val jokeCardView = findViewById<CardView>(R.id.jokeCardView)
+        if (cheerupMode && (jokesActivated || complimentsActivated)) {
+            jokeCardView.visibility = View.VISIBLE
+
+            if (jokesActivated && complimentsActivated) {
+                val random = Random().nextBoolean()
+                if (random) {
+                    generateNewJokeOrCompliment("joke")
+                } else {
+                    generateNewJokeOrCompliment("compliment")
+                }
+            } else if (jokesActivated) {
+                generateNewJokeOrCompliment("joke")
+            } else if (complimentsActivated) {
+                generateNewJokeOrCompliment("compliment")
+            }
+        } else {
+            jokeCardView.visibility = View.GONE
+        }
+
+
         val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
 
         if (darkMode && currentMode != Configuration.UI_MODE_NIGHT_YES) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         } else if (!darkMode && currentMode != Configuration.UI_MODE_NIGHT_NO) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+
+
+        val refreshButton = findViewById<MaterialButton>(R.id.refreshButton)
+        refreshButton.setOnClickListener {
+            if (!cheerupMode) return@setOnClickListener  // Don't refresh if cheerupMode is off
+
+            val random = Random()
+            when {
+                jokesActivated && complimentsActivated -> {
+                    val showJoke = random.nextBoolean()
+                    if (showJoke) {
+                        generateNewJokeOrCompliment("joke")
+                    } else {
+                        generateNewJokeOrCompliment("compliment")
+                    }
+                }
+                jokesActivated -> generateNewJokeOrCompliment("joke")
+                complimentsActivated -> generateNewJokeOrCompliment("compliment")
+            }
+        }
+
+    }
+
+
+    private fun generateNewJokeOrCompliment(type: String) {
+        val url = "http://10.34.64.139:8004/$type"
+        val requestQueue = Volley.newRequestQueue(this)
+        var textToShow = ""
+
+        val stringRequest = StringRequest(
+            Request.Method.GET, url,
+            { response ->
+                try {
+                    val jsonResponse = JSONObject(response)
+                    if (type == "joke") {
+                        textToShow = jsonResponse.getString("joke")
+                    } else {
+                        textToShow = jsonResponse.getString("compliment")
+                    }
+                    showJokeOrCompliment(textToShow)
+                } catch (e: Exception) {
+                    Log.e("JOKE", "Error parsing joke: ${e.message}")
+                }
+            },
+            { error ->
+                Log.e("JOKE", "Error fetching joke: ${error.message}")
+            })
+
+        requestQueue.add(stringRequest)
+    }
+
+
+    private fun showJokeOrCompliment(text: String) {
+        runOnUiThread {
+            findViewById<TextView>(R.id.jokeTextView).text = text
         }
     }
 
@@ -162,7 +251,10 @@ class MainActivity : AppCompatActivity() {
                         Log.d("VOLLEY", "Playing video from URL: $videoUrl")
 
                         val intent = Intent(this, SearchResultsActivity::class.java)
-                        intent.putExtra("results_json", result.toString()) // send JSON as String
+                        intent.putExtra(
+                            "results_json",
+                            result.toString()
+                        ) // send JSON as String
                         Log.d("Query", "Query is $query in Main")
                         intent.putExtra("currentQuery", query.toString())
                         intent.putExtra("results_json", result.toString())
@@ -188,7 +280,8 @@ class MainActivity : AppCompatActivity() {
                 val noResultsText = findViewById<TextView>(R.id.noResultsText)
                 runOnUiThread {
                     noResultsText.apply {
-                        text = "No videos found for '$query' with datatype '$dataType' and emotion '$emotion' ."
+                        text =
+                            "No videos found for '$query' with datatype '$dataType' and emotion '$emotion' ."
                         visibility = View.VISIBLE
                         alpha = 1f
                         animate()
@@ -278,13 +371,18 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == Companion.REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
                 startCameraStream()
             } else {
-                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT)
+                    .show()
                 finish()
             }
         }
@@ -329,7 +427,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
-                Toast.makeText(this, "Front Camera Streaming Started!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Front Camera Streaming Started!", Toast.LENGTH_SHORT)
+                    .show()
             } catch (exc: Exception) {
                 Log.e("CameraStream", "Failed to bind camera", exc)
             }
@@ -366,7 +465,7 @@ class MainActivity : AppCompatActivity() {
         val out = ByteArrayOutputStream()
         yuvImage.compressToJpeg(Rect(0, 0, yuvImage.width, yuvImage.height), 50, out)
         val imageBytes = out.toByteArray()
-        val bitmap =  BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
 
         val byteArrayOutputStream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
@@ -379,7 +478,6 @@ class MainActivity : AppCompatActivity() {
      * sends post request (with VOLLEY) to the sentiment api
      */
     fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
-        // TODO needs to be changed to the node adress
         val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
         val jsonBody = JSONObject()
         jsonBody.put("image", base64Image)
@@ -397,7 +495,8 @@ class MainActivity : AppCompatActivity() {
                     userEmotion = jsonResponse.optString("emotion", "Unknown")
 
                     runOnUiThread {
-                        findViewById<TextView>(R.id.text).text = "Sentiment: $sentiment\nEmotion: $userEmotion"
+                        findViewById<TextView>(R.id.text).text =
+                            "Sentiment: $sentiment\nEmotion: $userEmotion"
                         val sentimentIcon = findViewById<ImageView>(R.id.sentimentIcon)
                         when (userEmotion.lowercase()) {
                             "happy" -> sentimentIcon.setImageResource(R.drawable.mood_24px)
@@ -421,7 +520,8 @@ class MainActivity : AppCompatActivity() {
                 Log.e("VOLLEY", "Error: ${error.message}")
                 if (error.networkResponse != null) {
                     val statusCode = error.networkResponse.statusCode
-                    val responseData = error.networkResponse.data?.let { String(it) } ?: "No response body"
+                    val responseData =
+                        error.networkResponse.data?.let { String(it) } ?: "No response body"
                     Log.e("VOLLEY", "HTTP Status Code: $statusCode")
                     Log.e("VOLLEY", "Response Data: $responseData")
                 }
@@ -441,7 +541,10 @@ class MainActivity : AppCompatActivity() {
 
             override fun parseNetworkResponse(response: NetworkResponse?): Response<String> {
                 val responseString = response?.data?.let { String(it) } ?: "No Response"
-                return Response.success(responseString, HttpHeaderParser.parseCacheHeaders(response))
+                return Response.success(
+                    responseString,
+                    HttpHeaderParser.parseCacheHeaders(response)
+                )
             }
         }
 
@@ -467,7 +570,8 @@ class MainActivity : AppCompatActivity() {
                     val sentimentLabel = firstSentiment.getString("label")
                     val sentimentScore = firstSentiment.getDouble("score")
 
-                    val sentimentText = "Sentiment: $sentimentLabel (${String.format("%.2f", sentimentScore)})"
+                    val sentimentText =
+                        "Sentiment: $sentimentLabel (${String.format("%.2f", sentimentScore)})"
 
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
@@ -478,7 +582,8 @@ class MainActivity : AppCompatActivity() {
                 Log.e("VOLLEY", "Error: ${error.message}")
                 if (error.networkResponse != null) {
                     val statusCode = error.networkResponse.statusCode
-                    val responseData = error.networkResponse.data?.let { String(it) } ?: "No response body"
+                    val responseData =
+                        error.networkResponse.data?.let { String(it) } ?: "No response body"
                     Log.e("VOLLEY", "HTTP Status Code: $statusCode")
                     Log.e("VOLLEY", "Response Data: $responseData")
                 }
@@ -494,7 +599,10 @@ class MainActivity : AppCompatActivity() {
 
             override fun parseNetworkResponse(response: NetworkResponse?): Response<String> {
                 val responseString = response?.data?.let { String(it) } ?: "No Response"
-                return Response.success(responseString, HttpHeaderParser.parseCacheHeaders(response))
+                return Response.success(
+                    responseString,
+                    HttpHeaderParser.parseCacheHeaders(response)
+                )
             }
         }
 
