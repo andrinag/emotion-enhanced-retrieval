@@ -210,8 +210,8 @@ async def search_images(request: Request, query: str):
 
 
 ################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
-@app.get("/search_combined_face/{query}/{emotion}/")
-async def search_combined_face(query: str, emotion: str):
+@app.get("/search_combined_face/{query}/{emotion}/{allow_duplicates}")
+async def search_combined_face(query: str, emotion: str, allow_duplicates: bool):
     """
     Hybrid search that:
     1. Finds top-200 embeddings most similar to the query
@@ -285,6 +285,7 @@ async def search_combined_face(query: str, emotion: str):
             return JSONResponse({"message": "No video found"}, status_code=404)
 
         response = []
+        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -301,18 +302,25 @@ async def search_combined_face(query: str, emotion: str):
 
             full_path = os.path.join(dir_1, location)
 
-            if os.path.exists(full_path):
-                response.append({
-                    "embedding_id": embedding_id,
-                    "video_path": full_path,
-                    "frame_time": float(frame_time),
-                    "similarity": round(float(similarity), 3),
-                    "sentiment_match": float(sentiment_match),
-                    "final_score": round(float(final_score), 3),
-                    "annotated_image": annotated_path if annotated_path else frame_location,
-                    "face_emotion": emotion,
-                    "face_confidence": round(float(confidence), 3) if confidence is not None else None
-                })
+            if not os.path.exists(full_path):
+                continue
+
+            if not allow_duplicates:
+                if full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+            response.append({
+                "embedding_id": embedding_id,
+                "video_path": full_path,
+                "frame_time": float(frame_time),
+                "similarity": round(float(similarity), 3),
+                "sentiment_match": float(sentiment_match),
+                "final_score": round(float(final_score), 3),
+                "annotated_image": annotated_path if annotated_path else frame_location,
+                "face_emotion": emotion,
+                "face_confidence": round(float(confidence), 3) if confidence is not None else None
+            })
 
         return JSONResponse(response)
 
@@ -320,8 +328,8 @@ async def search_combined_face(query: str, emotion: str):
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/search_combined_asr/{query}/{emotion}")
-async def search_combined_asr(query: str, emotion: str):
+@app.get("/search_combined_asr/{query}/{emotion}/{allow_duplicates}")
+async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
     """
     Hybrid search using ASR (speech emotion):
     1. Finds top-200 embeddings most similar to the query
@@ -398,6 +406,7 @@ async def search_combined_asr(query: str, emotion: str):
             return JSONResponse({"message": "No video found"}, status_code=404)
 
         response = []
+        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -414,19 +423,26 @@ async def search_combined_asr(query: str, emotion: str):
 
             full_path = os.path.join(dir_1, location)
 
-            if os.path.exists(full_path):
-                response.append({
-                    "embedding_id": embedding_id,
-                    "video_path": full_path,
-                    "frame_time": float(frame_time),
-                    "annotated_image": frame_location,
-                    "similarity": round(float(similarity), 3),
-                    "sentiment_match": float(sentiment_match),
-                    "final_score": round(float(final_score), 3),
-                    "asr_emotion": emotion,
-                    "asr_confidence": round(float(confidence), 3) if confidence is not None else None,
-                    "asr_sentiment": sentiment_label
-                })
+            if not os.path.exists(full_path):
+                continue
+
+            if not allow_duplicates:
+                if full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+            response.append({
+                "embedding_id": embedding_id,
+                "video_path": full_path,
+                "frame_time": float(frame_time),
+                "annotated_image": frame_location,
+                "similarity": round(float(similarity), 3),
+                "sentiment_match": float(sentiment_match),
+                "final_score": round(float(final_score), 3),
+                "asr_emotion": emotion,
+                "asr_confidence": round(float(confidence), 3) if confidence is not None else None,
+                "asr_sentiment": sentiment_label
+            })
         print(response)
         return JSONResponse(response)
 
@@ -434,8 +450,8 @@ async def search_combined_asr(query: str, emotion: str):
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/search_combined_ocr/{query}/{emotion}")
-async def search_combined_ocr(query: str, emotion: str):
+@app.get("/search_combined_ocr/{query}/{emotion}/{allow_duplicates}")
+async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
     """
     Hybrid search using OCR data:
     1. Finds top-N embeddings similar to the query
@@ -517,6 +533,7 @@ async def search_combined_ocr(query: str, emotion: str):
             return JSONResponse({"message": "No OCR results found"}, status_code=404)
 
         response = []
+        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -536,22 +553,30 @@ async def search_combined_ocr(query: str, emotion: str):
             ) = row
 
             full_path = os.path.join(dir_1, location)
-            if os.path.exists(full_path):
-                response.append({
-                    "embedding_id": embedding_id,
-                    "video_path": full_path,
-                    "frame_time": float(frame_time),
-                    "similarity": round(float(similarity), 3),
-                    "sentiment_match": float(sentiment_match),
-                    "final_score": round(float(final_score), 3),
-                    "annotated_image": annotated_path if annotated_path else frame_location,
-                    "ocr_text": ocr_text,
-                    "ocr_emotion": emotion,
-                    "ocr_sentiment": sentiment_label,
-                    "sentiment_confidence": round(float(sentiment_conf), 3),
-                    "ocr_confidence": round(float(ocr_conf), 3),
-                    "bbox": {"x": x, "y": y, "w": w, "h": h}
-                })
+
+            if not os.path.exists(full_path):
+                continue
+
+            if not allow_duplicates:
+                if full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+            response.append({
+                "embedding_id": embedding_id,
+                "video_path": full_path,
+                "frame_time": float(frame_time),
+                "similarity": round(float(similarity), 3),
+                "sentiment_match": float(sentiment_match),
+                "final_score": round(float(final_score), 3),
+                "annotated_image": annotated_path if annotated_path else frame_location,
+                "ocr_text": ocr_text,
+                "ocr_emotion": emotion,
+                "ocr_sentiment": sentiment_label,
+                "sentiment_confidence": round(float(sentiment_conf), 3),
+                "ocr_confidence": round(float(ocr_conf), 3),
+                "bbox": {"x": x, "y": y, "w": w, "h": h}
+            })
 
         return JSONResponse(response)
 
@@ -561,8 +586,8 @@ async def search_combined_ocr(query: str, emotion: str):
 
 
 
-@app.get("/search_combined_all/{query}/{emotion}")
-async def search_combined_all(query: str, emotion: str):
+@app.get("/search_combined_all/{query}/{emotion}/{allow_duplicates}")
+async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
     """
     Multimodal sentiment-aware search:
     - Retrieves top 400 by embedding similarity.
@@ -646,6 +671,7 @@ async def search_combined_all(query: str, emotion: str):
         cursor.close()
 
         response = []
+        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -661,21 +687,29 @@ async def search_combined_all(query: str, emotion: str):
             ) = row
 
             full_path = os.path.join(dir_1, location)
-            if os.path.exists(full_path):
-                response.append({
-                    "embedding_id": embedding_id,
-                    "video_path": full_path,
-                    "frame_time": float(frame_time),
-                    "similarity": round(float(similarity), 3),
-                    "final_score": round(float(combined_score), 3),
-                    "annotated_image": annotated_image if annotated_image else frame_location,
-                    "face_emotion": face_emotion,
-                    "face_confidence": round(float(face_confidence), 3),
-                    "asr_emotion": asr_emotion,
-                    "asr_confidence": round(float(asr_confidence), 3),
-                    "ocr_emotion": ocr_emotion,
-                    "ocr_confidence": round(float(ocr_confidence), 3)
-                })
+
+            if not os.path.exists(full_path):
+                continue
+
+            if not allow_duplicates:
+                if full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+            response.append({
+                "embedding_id": embedding_id,
+                "video_path": full_path,
+                "frame_time": float(frame_time),
+                "similarity": round(float(similarity), 3),
+                "final_score": round(float(combined_score), 3),
+                "annotated_image": annotated_image if annotated_image else frame_location,
+                "face_emotion": face_emotion,
+                "face_confidence": round(float(face_confidence), 3),
+                "asr_emotion": asr_emotion,
+                "asr_confidence": round(float(asr_confidence), 3),
+                "ocr_emotion": ocr_emotion,
+                "ocr_confidence": round(float(ocr_confidence), 3)
+            })
 
         return JSONResponse(response)
 
@@ -759,8 +793,8 @@ def emotion_mapping(emotion:str):
     return emotion_to_emotion.get(emotion.lower(), "neutral")
 
 
-@app.get("/ask_llama/{query}/{emotion}")
-async def send_query_to_llama(query: str, emotion:str):
+@app.get("/ask_llama/{query}/{emotion}/{allow_duplicates}")
+async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
     response = await run_in_threadpool(
         requests.post,
         "http://localhost:11434/api/generate",
@@ -845,6 +879,7 @@ async def send_query_to_llama(query: str, emotion:str):
             cursor.close()
 
             response = []
+            seen_videos = set()
             for row in result:
                 (
                     embedding_id,
@@ -859,21 +894,29 @@ async def send_query_to_llama(query: str, emotion:str):
                 ) = row
 
                 full_path = os.path.join(dir_1, location)
-                if os.path.exists(full_path):
-                    response.append({
-                        "embedding_id": embedding_id,
-                        "video_path": full_path,
-                        "frame_time": float(frame_time),
-                        "similarity": round(float(similarity), 3),
-                        "final_score": round(float(combined_score), 3),
-                        "annotated_image": annotated_image if annotated_image else None,
-                        "face_emotion": face_emotion,
-                        "face_confidence": round(float(face_confidence), 3),
-                        "asr_emotion": asr_emotion,
-                        "asr_confidence": round(float(asr_confidence), 3),
-                        "ocr_emotion": ocr_emotion,
-                        "ocr_confidence": round(float(ocr_confidence), 3)
-                    })
+
+                if not os.path.exists(full_path):
+                    continue
+
+                if not allow_duplicates:
+                    if full_path in seen_videos:
+                        continue
+                    seen_videos.add(full_path)
+
+                response.append({
+                    "embedding_id": embedding_id,
+                    "video_path": full_path,
+                    "frame_time": float(frame_time),
+                    "similarity": round(float(similarity), 3),
+                    "final_score": round(float(combined_score), 3),
+                    "annotated_image": annotated_image if annotated_image else None,
+                    "face_emotion": face_emotion,
+                    "face_confidence": round(float(face_confidence), 3),
+                    "asr_emotion": asr_emotion,
+                    "asr_confidence": round(float(asr_confidence), 3),
+                    "ocr_emotion": ocr_emotion,
+                    "ocr_confidence": round(float(ocr_confidence), 3)
+                })
 
             return JSONResponse(response)
 
@@ -885,8 +928,8 @@ async def send_query_to_llama(query: str, emotion:str):
 
 
 
-@app.get("/search_by_direction_pair/")
-async def search_by_direction_pair(source_id: int, target_id: int):
+@app.get("/search_by_direction_pair/{allow_duplicates}")
+async def search_by_direction_pair(source_id: int, target_id: int, allow_duplicates: bool):
     """
     Computes direction vector from source to target embedding,
     and returns results closest to that direction, including annotated images. If the annotated image is null, then
@@ -927,16 +970,31 @@ async def search_by_direction_pair(source_id: int, target_id: int):
         results = cursor.fetchall()
         cursor.close()
 
-        return [
-            {
-                "embedding_id": row[0],
-                "video_path": os.path.join(VIDEO_DIRECTORY, row[1]),
-                "frame_time": row[2],
-                "similarity": float(row[3]),
-                "annotated_image": row[4] if row[4] else None
-            }
-            for row in results if row[1]
-        ]
+        response = []
+        seen_videos = set()
+
+        for row in results:
+            embedding_id, location, frame_time, similarity, annotated_image = row
+
+            full_path = os.path.join(VIDEO_DIRECTORY, location)
+
+            if not os.path.exists(full_path):
+                continue
+
+            if not allow_duplicates:
+                if full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+            response.append({
+                "embedding_id": embedding_id,
+                "video_path": full_path,
+                "frame_time": frame_time,
+                "similarity": float(similarity),
+                "annotated_image": annotated_image if annotated_image else None
+            })
+
+        return JSONResponse(response)
 
     except Exception as e:
         print(traceback.format_exc())
@@ -965,61 +1023,77 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
         direction = normalize_embedding(emb_b - emb_a)
         projected = normalize_embedding(emb_b + direction)
 
-        if datatype == "face":
-            join_table = "Face f"
-            emotion_col = "f.emotion"
-            image_col = "f.path_annotated_faces"
-            join_condition = "f.embedding_id = me.id"
-        elif datatype == "ocr":
-            join_table = "OCR o"
-            emotion_col = "o.emotion"
-            image_col = "o.path_annotated_location"
-            join_condition = "o.embedding_id = me.id"
-        elif datatype == "asr":
-            join_table = "ASR a"
-            emotion_col = "a.emotion"
-            image_col = "NULL"  # ASR has no image
-            join_condition = "a.embedding_id = me.id"
-        else:
-            raise HTTPException(status_code=400, detail="Invalid datatype")
-
-        # Dynamic query building for the datatypes and emotions
-        query = f"""
-            SELECT 
-                me.id,
-                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-                me.frame_time,
-                1 - (me.embedding <=> %s::vector) AS similarity,
-                COALESCE({image_col}, me.frame_location) AS annotated_image
-            FROM multimedia_embeddings me
-            JOIN {join_table} ON {join_condition}
-            WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
-            ORDER BY similarity DESC
-            LIMIT 10;
-        """
-
-        cursor.execute(query, (projected.tolist(), emotion))
-        results = cursor.fetchall()
-
-        # if there are no results, then ignore the datatype and emotion filter and just return nearest neighbors
-        if len(results) == 0:
-            cursor.execute("""
-                        SELECT 
-                            me.id,
-                            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-                            me.frame_time,
-                            1 - (me.embedding <=> %s::vector) AS similarity,
-                            COALESCE(
-                                (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
-                                (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
-                                me.frame_location
-                            ) AS annotated_image
-                        FROM multimedia_embeddings me
-                        ORDER BY similarity DESC
-                        LIMIT 10;
-                    """, (projected.tolist(),))
-
+        if datatype == "all":
+            filter_query = """
+                SELECT 
+                    me.id,
+                    (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity,
+                    COALESCE(
+                        (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
+                        (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
+                        me.frame_location
+                    ) AS annotated_image
+                FROM multimedia_embeddings me
+                ORDER BY similarity DESC
+                LIMIT 10;
+            """
+            cursor.execute(filter_query, (projected.tolist(),))
             results = cursor.fetchall()
+
+        else:
+            if datatype == "face":
+                join_table = "Face f"
+                emotion_col = "f.emotion"
+                image_col = "f.path_annotated_faces"
+                join_condition = "f.embedding_id = me.id"
+            elif datatype == "ocr":
+                join_table = "OCR o"
+                emotion_col = "o.emotion"
+                image_col = "o.path_annotated_location"
+                join_condition = "o.embedding_id = me.id"
+            elif datatype == "asr":
+                join_table = "ASR a"
+                emotion_col = "a.emotion"
+                image_col = "NULL"
+                join_condition = "a.embedding_id = me.id"
+            else:
+                raise HTTPException(status_code=400, detail="Invalid datatype")
+
+            query = f"""
+                SELECT 
+                    me.id,
+                    (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity,
+                    COALESCE({image_col}, me.frame_location) AS annotated_image
+                FROM multimedia_embeddings me
+                JOIN {join_table} ON {join_condition}
+                WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
+                ORDER BY similarity DESC
+                LIMIT 10;
+            """
+            cursor.execute(query, (projected.tolist(), emotion))
+            results = cursor.fetchall()
+
+            if len(results) == 0:
+                cursor.execute("""
+                    SELECT 
+                        me.id,
+                        (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                        me.frame_time,
+                        1 - (me.embedding <=> %s::vector) AS similarity,
+                        COALESCE(
+                            (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
+                            (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
+                            me.frame_location
+                        ) AS annotated_image
+                    FROM multimedia_embeddings me
+                    ORDER BY similarity DESC
+                    LIMIT 10;
+                """, (projected.tolist(),))
+                results = cursor.fetchall()
 
         cursor.close()
 
