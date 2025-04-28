@@ -8,6 +8,8 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.Switch
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -25,6 +27,12 @@ class SettingsActivity : AppCompatActivity() {
     private var complimentsActivated = false;
     private lateinit var jokesCheckbox : CheckBox
     private lateinit var complimentsCheckbox : CheckBox
+    private lateinit var suggestionsRadioGroup: RadioGroup
+    private lateinit var radioLLM: RadioButton
+    private lateinit var radioNearestNeighbor: RadioButton
+    private lateinit var radioNone: RadioButton
+    private var suggestionMode: String = "nearest"
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +44,11 @@ class SettingsActivity : AppCompatActivity() {
         switchCheerupMode = findViewById(R.id.cheerupMode)
         jokesCheckbox = findViewById(R.id.jokeCheckbox)
         complimentsCheckbox = findViewById(R.id.complimentCheckbox)
+        suggestionsRadioGroup = findViewById(R.id.suggestionsRadioGroup)
+        radioLLM = findViewById(R.id.radioLLM)
+        radioNearestNeighbor = findViewById(R.id.radioNearestNeighbor)
+        radioNone = findViewById(R.id.radioNone)
+
 
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         darkMode = sharedPref.getBoolean("darkMode", false)
@@ -54,6 +67,13 @@ class SettingsActivity : AppCompatActivity() {
         cheerupMode = sharedPref.getBoolean("cheerupMode", false)
         jokesActivated = sharedPref.getBoolean("jokesActivated", false)
         complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
+        suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
+        when (suggestionMode) {
+            "llm" -> radioLLM.isChecked = true
+            "nearest" -> radioNearestNeighbor.isChecked = true
+            "none" -> radioNone.isChecked = true
+        }
+
         switchCheerupMode.isChecked = cheerupMode
         jokesCheckbox.isChecked = jokesActivated
         complimentsCheckbox.isChecked = complimentsActivated
@@ -122,6 +142,22 @@ class SettingsActivity : AppCompatActivity() {
             validateCheerupOptions()
         }
 
+        // suggestion Mode
+        suggestionsRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            suggestionMode = when (checkedId) {
+                R.id.radioLLM -> "llm"
+                R.id.radioNearestNeighbor -> "nearest"
+                R.id.radioNone -> "none"
+                else -> "nearest"
+            }
+            with(sharedPref.edit()) {
+                putString("suggestionMode", suggestionMode)
+                apply()
+            }
+            Log.d("RADIO", "Selected suggestion mode: $suggestionMode")
+        }
+
+
     }
 
 
@@ -135,6 +171,7 @@ class SettingsActivity : AppCompatActivity() {
                 resultIntent.putExtra("cheerupMode", cheerupMode)
                 resultIntent.putExtra("jokesActivated", jokesActivated)
                 resultIntent.putExtra("complimentsActivated", complimentsActivated)
+                resultIntent.putExtra("suggestionMode", suggestionMode)
                 setResult(RESULT_OK, resultIntent)
                 finish()
                 true

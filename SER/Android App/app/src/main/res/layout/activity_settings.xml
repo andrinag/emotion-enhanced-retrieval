@@ -97,6 +97,40 @@
                 android:text="Enable Compliments"/>
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/textView5"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="8dp"
+            android:text="How would you like the suggestions to be made? "
+            android:textSize="16sp" />
+
+        <RadioGroup
+            android:id="@+id/suggestionsRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/radioLLM"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LLM (Large Language Model)" />
+
+            <RadioButton
+                android:id="@+id/radioNearestNeighbor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nearest Neighbor" />
+
+            <RadioButton
+                android:id="@+id/radioNone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="None" />
+        </RadioGroup>
+
+
 
     </LinearLayout>
 

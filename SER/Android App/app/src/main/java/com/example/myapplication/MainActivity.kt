@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var refreshButton: Button
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
+    var suggestionMode: String = "nearest"
 
 
     /**
@@ -121,6 +122,7 @@ class MainActivity : AppCompatActivity() {
         val cheerupMode = sharedPref.getBoolean("cheerupMode", false)
         val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
         val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
+        suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
         Log.d("CHEERUP", "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated")
 
 
@@ -261,6 +263,7 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("currentQuery", query)
                         intent.putExtra("emotion", emotionSpinner)
                         intent.putExtra("dataType", dataType)
+                        intent.putExtra("suggestionMode", suggestionMode)
                         startActivity(intent)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {

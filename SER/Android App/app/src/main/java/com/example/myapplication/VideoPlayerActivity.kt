@@ -73,10 +73,15 @@ class VideoPlayerActivity : AppCompatActivity() {
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
 
 
-        // checks if a currentEmbedding ID of the video that is playing is supplied
+        val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+
         if (currentEmbeddingId != -1) {
-            fetchDirectionRecommendations(currentEmbeddingId)
+            if (suggestionMode == "nearest") {
+                fetchDirectionRecommendations(currentEmbeddingId)
+            } else {
+                Log.d("SUGGESTION_MODE", "Suggestions using $suggestionMode")
+            }
         } else {
             Log.e("DIRECTION_SEARCH", "No embedding ID passed to the video player.")
         }
@@ -107,24 +112,23 @@ class VideoPlayerActivity : AppCompatActivity() {
         val imageAnnotation = findViewById<ImageView>(R.id.imageAnnotation)
         val checkboxShowAnnotation = findViewById<CheckBox>(R.id.checkboxShowAnnotation)
 
-        imageUrl?.contains("null")?.let {
-            if (!it) {
-                // If the annotated image exists, load it and show the checkbox
-                Glide.with(this)
-                    .load(imageUrl)
-                    .placeholder(android.R.drawable.ic_menu_report_image)
-                    .into(imageAnnotation)
+        if (!imageUrl.isNullOrBlank() && !imageUrl.contains("null")) {
+            Glide.with(this)
+                .load(imageUrl)
+                .placeholder(android.R.drawable.ic_menu_report_image)
+                .into(imageAnnotation)
 
-                checkboxShowAnnotation.visibility = View.VISIBLE // Make checkbox visible
-                checkboxShowAnnotation.setOnCheckedChangeListener { _, isChecked ->
-                    imageAnnotation.visibility = if (isChecked) View.VISIBLE else View.GONE
-                }
-            } else {
-                // No annotated image: hide both the checkbox and the image
-                checkboxShowAnnotation.visibility = View.GONE
-                imageAnnotation.visibility = View.GONE
+            checkboxShowAnnotation.visibility = View.VISIBLE
+            checkboxShowAnnotation.setOnCheckedChangeListener { _, isChecked ->
+                imageAnnotation.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
+
+            imageAnnotation.visibility = View.GONE
+        } else {
+            checkboxShowAnnotation.visibility = View.GONE
+            imageAnnotation.visibility = View.GONE
         }
+
 
 
         // initializes the media controller (play, pause button etc.)
@@ -160,6 +164,7 @@ class VideoPlayerActivity : AppCompatActivity() {
      * one being the embedding ID of the current video played.
      */
     fun fetchDirectionRecommendations(selectedEmbeddingId: Int) {
+        val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
         if (currentEmbeddingId == -1) {
             Log.e("DIRECTION_SEARCH", "Current embedding ID not found in intent.")
@@ -194,7 +199,6 @@ class VideoPlayerActivity : AppCompatActivity() {
                         }
 
 
-
                         directionResults.add(
                             VideoResult(
                                 videoUrl = videoPath,
@@ -210,8 +214,9 @@ class VideoPlayerActivity : AppCompatActivity() {
                     runOnUiThread {
                         val directionRecyclerView = findViewById<RecyclerView>(R.id.suggestionsRecyclerView)
                         directionRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = emotionSpinner, dataType = dataType)
+                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = emotionSpinner, dataType = dataType, suggestionMode)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
+                        findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from $suggestionMode"
                         directionRecyclerView.visibility = View.VISIBLE
                     }
 
@@ -244,6 +249,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     ) {
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
+        val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         Log.d("DATATYPE", dataType)
         val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner"
 
@@ -255,25 +261,42 @@ class VideoPlayerActivity : AppCompatActivity() {
                 Log.i("LLAMA", "Success! Response: $response")
                 try {
                     val result = JSONArray(response)
-                    val videoResults = mutableListOf<VideoResult>()
+                    val llmResults = mutableListOf<VideoResult>()
                     val baseUrl = "http://10.34.64.139:8001"
 
                     for (i in 0 until result.length()) {
                         val obj = result.getJSONObject(i)
-                        val embedding_id = obj.getInt("embedding_id")
-                        val videoUrl = baseUrl + obj.getString("video_path")
+                        val videoPath = baseUrl + obj.getString("video_path")
                         val frameTime = obj.optDouble("frame_time", 0.0)
-                        val annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+                        val embeddingId = obj.getInt("embedding_id")
 
-                        videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage, embedding_id))
+                        var annotatedImagePath = obj.optString("annotated_image", null)
+                        if (annotatedImagePath.isNullOrBlank() || annotatedImagePath.contains("null")) {
+                            annotatedImagePath = null
+                        }
+                        val annotatedImage = annotatedImagePath?.let { "$baseUrl/$it" }
+
+                        llmResults.add(
+                            VideoResult(
+                                videoUrl = videoPath,
+                                frameTime = frameTime,
+                                annotatedImageUrl = annotatedImage,
+                                embeddingID = embeddingId
+                            )
+                        )
                     }
 
-                    suggestionsAdapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType)
+                    suggestionsAdapter = ResultsAdapter(llmResults, this, query, emotionSpinner, dataType, suggestionMode)
                     suggestionsRecyclerView.adapter = suggestionsAdapter
 
+
                     runOnUiThread {
+                        val llmRecyclerView = findViewById<RecyclerView>(R.id.suggestionsRecyclerView)
+                        llmRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
+                        llmRecyclerView.adapter = ResultsAdapter(llmResults, this, query = "", emotion = emotionSpinner, dataType = dataType, suggestionMode)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
-                        findViewById<RecyclerView>(R.id.suggestionsRecyclerView).visibility = View.VISIBLE
+                        findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from $suggestionMode"
+                        llmRecyclerView.visibility = View.VISIBLE
                     }
 
                 } catch (e: Exception) {
@@ -307,6 +330,7 @@ class VideoPlayerActivity : AppCompatActivity() {
      * the emotion and confidence of the user.
      */
     fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
+        val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
         val jsonBody = JSONObject()
         jsonBody.put("image", base64Image)
@@ -337,14 +361,15 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 return@Listener
                             }
                             val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
-                            fetchDirectionRecommendations(currentEmbeddingId)
-                            /**
-                            sendQueryRequestLlama(this, query, emotionSpinner) { result ->
-                                Log.d("LLAMA", "LLaMA returned ${result.length()} results")
-                                adaptedQuery = result.toString()
-                                expectingAnswerLlama = false
-                                negativeSentimentCounter = 0 // Reset counter after success
-                            }**/
+
+                            Log.d("SUGGESTION", "suggestionmode is $suggestionMode")
+
+                            if (suggestionMode == "nearest") {
+                                fetchDirectionRecommendations(currentEmbeddingId)
+                            }
+                            if (suggestionMode == "llm") {
+                                sendQueryRequestLlama(this, query)
+                            }
                         }
                     }
 

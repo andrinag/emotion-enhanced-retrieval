@@ -49,8 +49,9 @@ class SearchResultsActivity : AppCompatActivity() {
         val query = intent.getStringExtra("currentQuery") ?: ""
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
+        val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         Log.d("Query", "Query in Search Result Acitivity is $query")
-        adapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType) // pass the query to adapter
+        adapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType, suggestionMode) // pass the query to adapter
 
         recyclerView.adapter = adapter
     }

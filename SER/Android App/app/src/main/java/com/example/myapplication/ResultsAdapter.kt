@@ -21,7 +21,8 @@ class ResultsAdapter(
     private val context: Context,
     private val query: String,
     private val emotion: String,
-    private val dataType: String
+    private val dataType: String,
+    private val suggestionMode: String
 ) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -82,6 +83,7 @@ class ResultsAdapter(
             intent.putExtra("emotion", emotion)
             intent.putExtra("embedding_id", item.embeddingID)
             intent.putExtra("dataType", dataType)
+            intent.putExtra("suggestionMode", suggestionMode)
             context.startActivity(intent)
         }
     }
