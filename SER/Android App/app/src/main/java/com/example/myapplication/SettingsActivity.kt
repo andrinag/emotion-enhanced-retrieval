@@ -52,6 +52,8 @@ class SettingsActivity : AppCompatActivity() {
 
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         darkMode = sharedPref.getBoolean("darkMode", false)
+        duplicateVideos = sharedPref.getBoolean("duplicateVideos", true)
+        switchDuplicateVideos.isChecked = duplicateVideos
         switchDarkMode.isChecked = darkMode
 
         switchDuplicateVideos.setOnCheckedChangeListener { _, isChecked ->

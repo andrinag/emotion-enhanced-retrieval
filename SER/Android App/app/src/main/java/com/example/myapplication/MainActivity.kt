@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
     var suggestionMode: String = "nearest"
+    var duplicateVideos: Boolean = true
 
 
     /**
@@ -119,7 +120,8 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         val darkMode = sharedPref.getBoolean("darkMode", false)
-        val cheerupMode = sharedPref.getBoolean("cheerupMode", false)
+        duplicateVideos = sharedPref.getBoolean("duplicateVideos", false)
+        val cheerupMode = sharedPref.getBoolean("cheerupMode", true)
         val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
         val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
@@ -224,7 +226,7 @@ class MainActivity : AppCompatActivity() {
         emotion: String,
         callback: (JSONArray) -> Unit
     ) {
-        val url = "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion"
+        val url = "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion/$duplicateVideos"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
@@ -264,6 +266,7 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("emotion", emotionSpinner)
                         intent.putExtra("dataType", dataType)
                         intent.putExtra("suggestionMode", suggestionMode)
+                        intent.putExtra("duplicateVideos", duplicateVideos)
                         startActivity(intent)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {

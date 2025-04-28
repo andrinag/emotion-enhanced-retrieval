@@ -50,8 +50,10 @@ class SearchResultsActivity : AppCompatActivity() {
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
+        val duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
         Log.d("Query", "Query in Search Result Acitivity is $query")
-        adapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType, suggestionMode) // pass the query to adapter
+        adapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType,
+            suggestionMode, duplicateVideos) // pass the query to adapter
 
         recyclerView.adapter = adapter
     }

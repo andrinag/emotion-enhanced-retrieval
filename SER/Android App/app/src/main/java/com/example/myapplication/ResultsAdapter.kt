@@ -22,7 +22,8 @@ class ResultsAdapter(
     private val query: String,
     private val emotion: String,
     private val dataType: String,
-    private val suggestionMode: String
+    private val suggestionMode: String,
+    private val duplicateVideos: Boolean
 ) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -84,6 +85,7 @@ class ResultsAdapter(
             intent.putExtra("embedding_id", item.embeddingID)
             intent.putExtra("dataType", dataType)
             intent.putExtra("suggestionMode", suggestionMode)
+            intent.putExtra("duplicateVideos", duplicateVideos)
             context.startActivity(intent)
         }
     }

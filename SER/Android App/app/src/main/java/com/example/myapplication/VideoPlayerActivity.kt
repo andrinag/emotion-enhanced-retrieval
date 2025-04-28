@@ -48,11 +48,12 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var titleView: TextView
     private lateinit var cameraExecutor: ExecutorService
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
-    var userEmotion: String = "happy"
-    var expectingAnswerLlama = false
+    private var userEmotion: String = "happy"
+    private var expectingAnswerLlama = false
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: ResultsAdapter
-    var negativeSentimentCounter: Int = 0
+    private var negativeSentimentCounter: Int = 0
+    private var duplicateVideos = true
 
 
     /**
@@ -75,15 +76,18 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
 
         if (currentEmbeddingId != -1) {
             if (suggestionMode == "nearest") {
                 fetchDirectionRecommendations(currentEmbeddingId)
-            } else {
-                Log.d("SUGGESTION_MODE", "Suggestions using $suggestionMode")
+            }
+            if (suggestionMode == "llm") {
+                val query = intent.getStringExtra("query") ?: ""
+                sendQueryRequestLlama(this, query)
             }
         } else {
-            Log.e("DIRECTION_SEARCH", "No embedding ID passed to the video player.")
+            Log.e("suggestionMode", "No embedding ID passed to the video player or the suggestionMode is none")
         }
 
 
@@ -173,6 +177,8 @@ class VideoPlayerActivity : AppCompatActivity() {
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
         Log.d("DATATYPE", dataType)
+        // TODO
+        // val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId/$duplicateVideos"
         val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId"
         Log.d("DIRECTION_SEARCH", "Fetching from URL: $url")
 
@@ -214,7 +220,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     runOnUiThread {
                         val directionRecyclerView = findViewById<RecyclerView>(R.id.suggestionsRecyclerView)
                         directionRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = emotionSpinner, dataType = dataType, suggestionMode)
+                        directionRecyclerView.adapter = ResultsAdapter(directionResults, this, query = "", emotion = emotionSpinner, dataType = dataType, suggestionMode, duplicateVideos)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
                         findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from $suggestionMode"
                         directionRecyclerView.visibility = View.VISIBLE
@@ -251,7 +257,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         val dataType = intent.getStringExtra("dataType") ?: ""
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         Log.d("DATATYPE", dataType)
-        val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner"
+        val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner/$duplicateVideos"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
@@ -286,14 +292,14 @@ class VideoPlayerActivity : AppCompatActivity() {
                         )
                     }
 
-                    suggestionsAdapter = ResultsAdapter(llmResults, this, query, emotionSpinner, dataType, suggestionMode)
+                    suggestionsAdapter = ResultsAdapter(llmResults, this, query, emotionSpinner, dataType, suggestionMode, duplicateVideos)
                     suggestionsRecyclerView.adapter = suggestionsAdapter
 
 
                     runOnUiThread {
                         val llmRecyclerView = findViewById<RecyclerView>(R.id.suggestionsRecyclerView)
                         llmRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-                        llmRecyclerView.adapter = ResultsAdapter(llmResults, this, query = "", emotion = emotionSpinner, dataType = dataType, suggestionMode)
+                        llmRecyclerView.adapter = ResultsAdapter(llmResults, this, query = "", emotion = emotionSpinner, dataType = dataType, suggestionMode, duplicateVideos)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
                         findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from $suggestionMode"
                         llmRecyclerView.visibility = View.VISIBLE
