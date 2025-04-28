@@ -1001,8 +1001,8 @@ async def search_by_direction_pair(source_id: int, target_id: int, allow_duplica
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@app.get("/search_by_direction_pair/{datatype}/{emotion}")
-async def search_by_direction_pair(source_id: int, target_id: int, datatype: str, emotion: str):
+@app.get("/search_by_direction_pair/{datatype}/{emotion}/{allow_duplicates}")
+async def search_by_direction_pair(source_id: int, target_id: int, datatype: str, emotion: str, allow_duplicates: bool):
     """
     Computes direction vector from source to target embedding,
     filters results by datatype and emotion that are given by the user in the app.
@@ -1097,20 +1097,35 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
 
         cursor.close()
 
-        return [
-            {
-                "embedding_id": row[0],
-                "video_path": os.path.join(VIDEO_DIRECTORY, row[1]),
-                "frame_time": row[2],
-                "similarity": float(row[3]),
-                "annotated_image": row[4] if row[4] else None
-            }
-            for row in results if row[1]
-        ]
+        response = []
+        seen_videos = set()
+
+        for row in results:
+            embedding_id, location, frame_time, similarity, annotated_image = row
+            full_path = os.path.join(VIDEO_DIRECTORY, location)
+
+            if not os.path.exists(full_path):
+                continue
+
+            if not allow_duplicates:
+                if full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+            response.append({
+                "embedding_id": embedding_id,
+                "video_path": full_path,
+                "frame_time": frame_time,
+                "similarity": float(similarity),
+                "annotated_image": annotated_image if annotated_image else None
+            })
+
+        return JSONResponse(response)
 
     except Exception as e:
         print(traceback.format_exc())
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 
 
