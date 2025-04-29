@@ -91,12 +91,14 @@ class VideoPlayerActivity : AppCompatActivity() {
         if (currentEmbeddingId != -1) {
             if (suggestionMode == "nearest") {
                 fetchDirectionRecommendations(currentEmbeddingId)
+                checkboxShowLlamaQuery.visibility = View.GONE
             }
             if (suggestionMode == "llm") {
                 currentQuery = intent.getStringExtra("currentQuery") ?: ""
                 //sendQueryRequestLlama(this, currentQuery)
             }
         } else {
+            checkboxShowLlamaQuery.visibility = View.GONE
             Log.e("suggestionMode", "No embedding ID passed to the video player or the suggestionMode is none")
         }
 
@@ -146,7 +148,7 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         // shows the updated query of the llama
         checkboxShowLlamaQuery.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked && llamaUpdatedQuery.isNotBlank()) {
+            if (isChecked && llamaUpdatedQuery.isNotBlank() && suggestionMode == "llm") {
                 llamaQueryText.text = llamaUpdatedQuery
                 llamaQueryText.visibility = View.VISIBLE
             } else {
