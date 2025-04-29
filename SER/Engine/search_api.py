@@ -904,6 +904,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                     seen_videos.add(full_path)
 
                 response.append({
+                    "llama_updated_query": query,
                     "embedding_id": embedding_id,
                     "video_path": full_path,
                     "frame_time": float(frame_time),
