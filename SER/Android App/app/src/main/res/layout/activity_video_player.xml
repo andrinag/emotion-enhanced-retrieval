@@ -71,6 +71,24 @@
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="20sp" />
 
+        <CheckBox
+            android:id="@+id/checkboxShowLlamaQuery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show updated LLaMA query"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="20sp"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/llamaQueryText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:text="Updated LLaMA query will appear here..."
+            android:textSize="16sp"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/suggestionsLabel"
             android:layout_width="wrap_content"

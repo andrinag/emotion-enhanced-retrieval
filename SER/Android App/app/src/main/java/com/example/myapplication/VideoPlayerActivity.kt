@@ -55,6 +55,10 @@ class VideoPlayerActivity : AppCompatActivity() {
     private var negativeSentimentCounter: Int = 0
     private var duplicateVideos = true
     private var currentQuery = ""
+    private var suggestionsAlreadyTriggered = false
+    private lateinit var checkboxShowLlamaQuery: CheckBox
+    private lateinit var llamaQueryText: TextView
+    private var llamaUpdatedQuery: String = ""
 
 
     /**
@@ -73,6 +77,8 @@ class VideoPlayerActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         suggestionsRecyclerView = findViewById(R.id.suggestionsRecyclerView)
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        checkboxShowLlamaQuery = findViewById(R.id.checkboxShowLlamaQuery)
+        llamaQueryText = findViewById(R.id.llamaQueryText)
 
 
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
@@ -88,7 +94,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             }
             if (suggestionMode == "llm") {
                 currentQuery = intent.getStringExtra("currentQuery") ?: ""
-                sendQueryRequestLlama(this, currentQuery)
+                //sendQueryRequestLlama(this, currentQuery)
             }
         } else {
             Log.e("suggestionMode", "No embedding ID passed to the video player or the suggestionMode is none")
@@ -137,6 +143,16 @@ class VideoPlayerActivity : AppCompatActivity() {
             imageAnnotation.visibility = View.GONE
         }
 
+
+        // shows the updated query of the llama
+        checkboxShowLlamaQuery.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && llamaUpdatedQuery.isNotBlank()) {
+                llamaQueryText.text = llamaUpdatedQuery
+                llamaQueryText.visibility = View.VISIBLE
+            } else {
+                llamaQueryText.visibility = View.GONE
+            }
+        }
 
 
         // initializes the media controller (play, pause button etc.)
@@ -277,6 +293,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                         val videoPath = baseUrl + obj.getString("video_path")
                         val frameTime = obj.optDouble("frame_time", 0.0)
                         val embeddingId = obj.getInt("embedding_id")
+                        llamaUpdatedQuery = obj.getString("llama_updated_query")
+                        Log.d("LLAMA", "new llama query is $llamaUpdatedQuery")
 
                         var annotatedImagePath = obj.optString("annotated_image", null)
                         if (annotatedImagePath.isNullOrBlank() || annotatedImagePath.contains("null")) {
@@ -292,6 +310,18 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 embeddingID = embeddingId
                             )
                         )
+                    }
+
+                    val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
+                    if (suggestionMode == "llm" && llamaUpdatedQuery.isNotBlank()) {
+                        runOnUiThread {
+                            checkboxShowLlamaQuery.visibility = View.VISIBLE
+                        }
+                    } else {
+                        runOnUiThread {
+                            checkboxShowLlamaQuery.visibility = View.GONE
+                            llamaQueryText.visibility = View.GONE
+                        }
                     }
 
                     suggestionsAdapter = ResultsAdapter(llmResults, this, query, emotionSpinner, dataType, suggestionMode, duplicateVideos)
@@ -358,7 +388,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                         negativeSentimentCounter++
                         Log.d("LLAMA", "Negative sentiment detected. Count: $negativeSentimentCounter")
 
-                        if (negativeSentimentCounter >= 1) {
+                        if (negativeSentimentCounter >= 1 && !suggestionsAlreadyTriggered) {
+                            suggestionsAlreadyTriggered = true
                             expectingAnswerLlama = true
 
                             val query = intent.getStringExtra("currentQuery")
