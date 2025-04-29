@@ -23,6 +23,10 @@
     </string>
     <string name="welcome"><![CDATA[Welcome to Retri<3er]]></string>
     <string name="app_name"><![CDATA[Retri<3ver]]></string>
+    <string name="settings_explanation">"In the settings you can adjust different things like appearance, suggestions and modes. For the suggestions there are three different options: Nearest Nieghbor Search, Large Language Model and no suggestions. The Nearest Neigbor Search suggest new videos based on the direciton of the preference of the user. The Language Model on the other hand aims to improve the query the user gave and suggest results based on that. "</string>
+    <string name="search_explanation"><![CDATA[The Retri<3ver App allows you to search multimedia content. This search is not only enhanced with different type of suggestions but also with emotions! ]]></string>
+    <string name="sentiment_detection_explanation">"While the app is running your the emotions you display in your face are analyzed. You can see in the home page of the app what the current detected emotion of your face is. "</string>
+    <string name="filter_explanation">"With the help of the filters (the two dropdown menus in the home page) you can adjust the search query to your liking. The first drop down menu is for for what emotion you would like to be displayed. Here you can also select your current emotion. The seconds drop down menu is for the datatype in which the emotion is detected. This can be OCR, where the text recognized is analyzed for emotion, ASR so the emotion in speech or the emotion in the faces detected. "</string>
 
 
 </resources>

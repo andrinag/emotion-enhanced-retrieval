@@ -64,10 +64,10 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Enter a query and let the engine find videos based on sentiment and emotion-aware search!"
-                        android:textSize="16sp"
                         android:layout_marginTop="8dp"
-                        android:textColor="?android:attr/textColorSecondary" />
+                        android:text="@string/search_explanation"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="16sp" />
 
                     <ImageView
                         android:id="@+id/imageView"
@@ -92,7 +92,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Enter a query and let the engine find videos based on sentiment and emotion-aware search!"
+                        android:text="@string/filter_explanation"
                         android:textColor="?android:attr/textColorSecondary"
                         android:textSize="16sp" />
                 </LinearLayout>
@@ -131,10 +131,10 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="The app detects your emotion live via camera to adapt the results dynamically!"
-                        android:textSize="16sp"
                         android:layout_marginTop="8dp"
-                        android:textColor="?android:attr/textColorSecondary" />
+                        android:text="@string/sentiment_detection_explanation"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="16sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -170,10 +170,10 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Adjust duplicate videos, dark mode, and other preferences in the settings."
-                        android:textSize="16sp"
                         android:layout_marginTop="8dp"
-                        android:textColor="?android:attr/textColorSecondary" />
+                        android:text="@string/settings_explanation"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="16sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
