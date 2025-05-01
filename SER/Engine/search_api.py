@@ -43,7 +43,7 @@ app.mount("/ocr_visualizations", StaticFiles(directory="./ocr_visualizations"), 
 
 # connection to the local database
 conn = psycopg2.connect(
-    dbname="temp_multimedia_db",
+    dbname="multimedia_db",
     user="test",
     host="10.34.64.139",
     password="123",
