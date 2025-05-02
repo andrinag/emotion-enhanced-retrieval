@@ -937,80 +937,6 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
 
 
 
-@app.get("/search_by_direction_pair/{allow_duplicates}")
-async def search_by_direction_pair(source_id: int, target_id: int, allow_duplicates: bool):
-    """
-    Computes direction vector from source to target embedding,
-    and returns results closest to that direction, including annotated images. If the annotated image is null, then
-    the frame image is returned. The reason for this is that a image is needed for the thumbnail of the video.
-    """
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT embedding FROM multimedia_embeddings WHERE id = %s", (source_id,))
-        row_a = cursor.fetchone()
-
-        cursor.execute("SELECT embedding FROM multimedia_embeddings WHERE id = %s", (target_id,))
-        row_b = cursor.fetchone()
-
-        if not row_a or not row_b:
-            raise HTTPException(status_code=404, detail="Embeddings not found.")
-
-        emb_a = np.array(row_a[0])
-        emb_b = np.array(row_b[0])
-        direction = normalize_embedding(emb_b - emb_a)
-        projected = normalize_embedding(emb_b + direction)
-
-        cursor.execute("""
-            SELECT 
-                me.id,
-                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-                me.frame_time,
-                me.frame_location,
-                1 - (me.embedding <=> %s::vector) AS similarity,
-                COALESCE(
-                    (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
-                    (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
-                ) AS annotated_image
-            FROM multimedia_embeddings me
-            ORDER BY similarity DESC
-            LIMIT 10;
-        """, (projected.tolist(),))
-
-        results = cursor.fetchall()
-        cursor.close()
-
-        response = []
-        seen_videos = set()
-
-        for row in results:
-            embedding_id, location, frame_time, frame_location, similarity, annotated_image = row
-
-            full_path = os.path.join(VIDEO_DIRECTORY, location)
-
-            if not os.path.exists(full_path):
-                continue
-
-            if not allow_duplicates:
-                if full_path in seen_videos:
-                    continue
-                seen_videos.add(full_path)
-
-            response.append({
-                "embedding_id": embedding_id,
-                "video_path": full_path,
-                "frame_time": frame_time,
-                "similarity": float(similarity),
-                "annotated_image": annotated_image if annotated_image else None,
-                "frame_location": frame_location
-            })
-
-        return JSONResponse(response)
-
-    except Exception as e:
-        print(traceback.format_exc())
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
 @app.get("/search_by_direction_pair/{datatype}/{emotion}/{allow_duplicates}")
 async def search_by_direction_pair(source_id: int, target_id: int, datatype: str, emotion: str, allow_duplicates: bool):
     """
@@ -1128,7 +1054,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                 "video_path": full_path,
                 "frame_time": frame_time,
                 "similarity": float(similarity),
-                "annotated_image": annotated_image if annotated_image else None,
+                "annotated_image": str(annotated_image) if annotated_image else None,
                 "frame_location": frame_location
             })
 
