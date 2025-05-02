@@ -1078,7 +1078,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                     me.frame_time,
                     me.frame_location,
                     1 - (me.embedding <=> %s::vector) AS similarity,
-                    COALESCE({image_col}, me.frame_location) AS annotated_image
+                    {image_col} AS annotated_image
                 FROM multimedia_embeddings me
                 JOIN {join_table} ON {join_condition}
                 WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
@@ -1098,8 +1098,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                         1 - (me.embedding <=> %s::vector) AS similarity,
                         COALESCE(
                             (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
-                            (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
-                            me.frame_location
+                            (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
                         ) AS annotated_image
                     FROM multimedia_embeddings me
                     ORDER BY similarity DESC
