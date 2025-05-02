@@ -230,54 +230,102 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
         query_embedding = normalize_embedding(query_embedding)
 
         # 2. Execute the combined SQL query
-        cursor.execute("""
-            WITH top_embeddings AS (
+        if allow_duplicates:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY similarity DESC
+                    LIMIT 200
+                ),
+                scored_faces AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        f.emotion,
+                        f.confidence,
+                        f.path_annotated_faces,
+                        CASE
+                            WHEN LOWER(f.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (f.confidence * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    JOIN Face f ON f.embedding_id = te.embedding_id
+                )
                 SELECT 
-                    me.id AS embedding_id,
-                    mo.location,
-                    me.frame_time,
-                    me.frame_location,
-                    1 - (me.embedding <=> %s::vector) AS similarity
-                FROM multimedia_embeddings me
-                JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                ORDER BY similarity DESC
-                LIMIT 200
-            ),
-            scored_faces AS (
-                SELECT 
-                    te.embedding_id,
-                    te.location,
-                    te.frame_time,
-                    te.frame_location,
-                    te.similarity,
-                    f.emotion,
-                    f.confidence,
-                    f.path_annotated_faces,
-                    CASE
-                        WHEN LOWER(f.emotion) = LOWER(%s) THEN 1.0
-                        ELSE 0.0
-                    END AS emotion_match,
-                    ((te.similarity * 0.5) + (f.confidence * 0.5)) AS combined_score
-                FROM top_embeddings te
-                JOIN Face f ON f.embedding_id = te.embedding_id
-            )
-            SELECT 
-                embedding_id,
-                location,
-                frame_time,
-                frame_location,
-                similarity,
-                emotion_match,
-                combined_score,
-                path_annotated_faces,
-                emotion,
-                confidence
-            FROM scored_faces
-            WHERE emotion_match = 1.0
-            ORDER BY combined_score DESC
-            LIMIT 10;
-        """, (query_embedding.tolist(), emotion_filter))
-
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    path_annotated_faces,
+                    emotion,
+                    confidence
+                FROM scored_faces
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion_filter))
+        else:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY similarity DESC
+                    LIMIT 200
+                ),
+                scored_faces AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        f.emotion,
+                        f.confidence,
+                        f.path_annotated_faces,
+                        CASE
+                            WHEN LOWER(f.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (f.confidence * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    JOIN Face f ON f.embedding_id = te.embedding_id
+                )
+                SELECT DISTINCT ON (location)
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    path_annotated_faces,
+                    emotion,
+                    confidence
+                FROM scored_faces
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion_filter))
         result = cursor.fetchall()
         cursor.close()
 
@@ -285,7 +333,6 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
             return JSONResponse({"message": "No video found"}, status_code=404)
 
         response = []
-        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -304,11 +351,6 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
 
             if not os.path.exists(full_path):
                 continue
-
-            if not allow_duplicates:
-                if full_path in seen_videos:
-                    continue
-                seen_videos.add(full_path)
 
             response.append({
                 "embedding_id": embedding_id,
@@ -351,54 +393,102 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
         query_embedding = get_embedding(input_text=query_filter)
         query_embedding = normalize_embedding(query_embedding)
 
-        cursor.execute("""
-            WITH top_embeddings AS (
+        if allow_duplicates:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY location, similarity DESC
+                    LIMIT 1000
+                ),
+                scored_asr AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(a.emotion, '') AS emotion,
+                        COALESCE(a.confidence, 0.0) AS confidence,
+                        COALESCE(a.sentiment, '') AS sentiment,
+                        CASE
+                            WHEN LOWER(a.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (COALESCE(a.confidence, 0.0) * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                )
                 SELECT 
-                    me.id AS embedding_id,
-                    mo.location,
-                    me.frame_time,
-                    me.frame_location,
-                    1 - (me.embedding <=> %s::vector) AS similarity
-                FROM multimedia_embeddings me
-                JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                ORDER BY similarity DESC
-                LIMIT 1000
-            ),
-            scored_asr AS (
-                SELECT 
-                    te.embedding_id,
-                    te.location,
-                    te.frame_time,
-                    te.frame_location,
-                    te.similarity,
-                    COALESCE(a.emotion, '') AS emotion,
-                    COALESCE(a.confidence, 0.0) AS confidence,
-                    COALESCE(a.sentiment, '') AS sentiment,
-                    CASE
-                        WHEN LOWER(a.emotion) = LOWER(%s) THEN 1.0
-                        ELSE 0.0
-                    END AS emotion_match,
-                    ((te.similarity * 0.5) + (COALESCE(a.confidence, 0.0) * 0.5)) AS combined_score
-                FROM top_embeddings te
-                LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
-            )
-            SELECT 
-                embedding_id,
-                location,
-                frame_time,
-                frame_location,
-                similarity,
-                emotion_match,
-                combined_score,
-                emotion,
-                confidence,
-                sentiment
-            FROM scored_asr
-            WHERE emotion_match = 1.0
-            ORDER BY combined_score DESC
-            LIMIT 10;
-        """, (query_embedding.tolist(), emotion_filter))
-
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    emotion,
+                    confidence,
+                    sentiment
+                FROM scored_asr
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion_filter))
+        else:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY location, similarity DESC
+                    LIMIT 1000
+                ),
+                scored_asr AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(a.emotion, '') AS emotion,
+                        COALESCE(a.confidence, 0.0) AS confidence,
+                        COALESCE(a.sentiment, '') AS sentiment,
+                        CASE
+                            WHEN LOWER(a.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (COALESCE(a.confidence, 0.0) * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                )
+                SELECT DISTINCT ON (location)
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    emotion,
+                    confidence,
+                    sentiment
+                FROM scored_asr
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion_filter))
         result = cursor.fetchall()
         print(result)
         cursor.close()
@@ -407,7 +497,6 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
             return JSONResponse({"message": "No video found"}, status_code=404)
 
         response = []
-        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -426,11 +515,6 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
 
             if not os.path.exists(full_path):
                 continue
-
-            if not allow_duplicates:
-                if full_path in seen_videos:
-                    continue
-                seen_videos.add(full_path)
 
             response.append({
                 "embedding_id": embedding_id,
@@ -468,64 +552,124 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
         query_embedding = get_embedding(input_text=query.lower())
         query_embedding = normalize_embedding(query_embedding)
 
-        cursor.execute("""
-            WITH top_embeddings AS (
+        if allow_duplicates:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY location, similarity DESC
+                    LIMIT 1000
+                ),
+                scored_ocr AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(o.emotion, '') AS emotion,
+                        COALESCE(o.sentiment, '') AS sentiment,
+                        COALESCE(o.sentiment_confidence, 0.0) AS sentiment_confidence,
+                        COALESCE(o.ocr_confidence, 0.0) AS ocr_confidence,
+                        COALESCE(o.path_annotated_location, '') AS path_annotated_location,
+                        COALESCE(o.text, '') AS text,
+                        COALESCE(o.x, 0.0) AS x,
+                        COALESCE(o.y, 0.0) AS y,
+                        COALESCE(o.w, 0.0) AS w,
+                        COALESCE(o.h, 0.0) AS h,
+                        CASE
+                            WHEN LOWER(o.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (COALESCE(o.sentiment_confidence, 0.0) * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                )
                 SELECT 
-                    me.id AS embedding_id,
-                    mo.location,
-                    me.frame_time,
-                    me.frame_location,
-                    1 - (me.embedding <=> %s::vector) AS similarity
-                FROM multimedia_embeddings me
-                JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                ORDER BY similarity DESC
-                LIMIT 1000
-            ),
-            scored_ocr AS (
-                SELECT 
-                    te.embedding_id,
-                    te.location,
-                    te.frame_time,
-                    te.frame_location,
-                    te.similarity,
-                    COALESCE(o.emotion, '') AS emotion,
-                    COALESCE(o.sentiment, '') AS sentiment,
-                    COALESCE(o.sentiment_confidence, 0.0) AS sentiment_confidence,
-                    COALESCE(o.ocr_confidence, 0.0) AS ocr_confidence,
-                    COALESCE(o.path_annotated_location, '') AS path_annotated_location,
-                    COALESCE(o.text, '') AS text,
-                    COALESCE(o.x, 0.0) AS x,
-                    COALESCE(o.y, 0.0) AS y,
-                    COALESCE(o.w, 0.0) AS w,
-                    COALESCE(o.h, 0.0) AS h,
-                    CASE
-                        WHEN LOWER(o.emotion) = LOWER(%s) THEN 1.0
-                        ELSE 0.0
-                    END AS emotion_match,
-                    ((te.similarity * 0.5) + (COALESCE(o.sentiment_confidence, 0.0) * 0.5)) AS combined_score
-                FROM top_embeddings te
-                LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
-            )
-            SELECT 
-                embedding_id,
-                location,
-                frame_time,
-                frame_location,
-                similarity,
-                emotion_match,
-                combined_score,
-                path_annotated_location,
-                emotion,
-                sentiment_confidence,
-                ocr_confidence,
-                sentiment,
-                text,
-                x, y, w, h
-            FROM scored_ocr
-            WHERE emotion_match = 1.0
-            ORDER BY combined_score DESC
-            LIMIT 10;
-        """, (query_embedding.tolist(), emotion.lower()))
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    path_annotated_location,
+                    emotion,
+                    sentiment_confidence,
+                    ocr_confidence,
+                    sentiment,
+                    text,
+                    x, y, w, h
+                FROM scored_ocr
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion.lower()))
+        else:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY location, similarity DESC
+                    LIMIT 1000
+                ),
+                scored_ocr AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(o.emotion, '') AS emotion,
+                        COALESCE(o.sentiment, '') AS sentiment,
+                        COALESCE(o.sentiment_confidence, 0.0) AS sentiment_confidence,
+                        COALESCE(o.ocr_confidence, 0.0) AS ocr_confidence,
+                        COALESCE(o.path_annotated_location, '') AS path_annotated_location,
+                        COALESCE(o.text, '') AS text,
+                        COALESCE(o.x, 0.0) AS x,
+                        COALESCE(o.y, 0.0) AS y,
+                        COALESCE(o.w, 0.0) AS w,
+                        COALESCE(o.h, 0.0) AS h,
+                        CASE
+                            WHEN LOWER(o.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (COALESCE(o.sentiment_confidence, 0.0) * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                )
+                SELECT DISTINCT ON (location)
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    path_annotated_location,
+                    emotion,
+                    sentiment_confidence,
+                    ocr_confidence,
+                    sentiment,
+                    text,
+                    x, y, w, h
+                FROM scored_ocr
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion.lower()))
 
         result = cursor.fetchall()
         cursor.close()
@@ -534,7 +678,6 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
             return JSONResponse({"message": "No OCR results found"}, status_code=404)
 
         response = []
-        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -557,11 +700,6 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
 
             if not os.path.exists(full_path):
                 continue
-
-            if not allow_duplicates:
-                if full_path in seen_videos:
-                    continue
-                seen_videos.add(full_path)
 
             response.append({
                 "embedding_id": embedding_id,
@@ -605,75 +743,134 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
         query_embedding = get_embedding(input_text=query.lower())
         query_embedding = normalize_embedding(query_embedding)
 
-        cursor.execute("""
-            WITH top_embeddings AS (
+        if allow_duplicates:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY location, similarity DESC
+                    LIMIT 600
+                ),
+                joined AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(f.emotion, '') AS face_emotion,
+                        COALESCE(f.confidence, 0.0) AS face_confidence,
+                        COALESCE(a.emotion, '') AS asr_emotion,
+                        COALESCE(a.confidence, 0.0) AS asr_confidence,
+                        COALESCE(o.emotion, '') AS ocr_emotion,
+                        COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
+                        COALESCE(f.path_annotated_faces, '') AS annotated_image,
+                        CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
+                        CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
+                        CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
+                    FROM top_embeddings te
+                    LEFT JOIN Face f ON f.embedding_id = te.embedding_id
+                    LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                    LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                )
                 SELECT 
-                    me.id AS embedding_id,
-                    mo.location,
-                    me.frame_time,
-                    me.frame_location,
-                    1 - (me.embedding <=> %s::vector) AS similarity
-                FROM multimedia_embeddings me
-                JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                ORDER BY similarity DESC
-                LIMIT 600
-            ),
-            joined AS (
-                SELECT 
-                    te.embedding_id,
-                    te.location,
-                    te.frame_time,
-                    te.frame_location,
-                    te.similarity,
-                    COALESCE(f.emotion, '') AS face_emotion,
-                    COALESCE(f.confidence, 0.0) AS face_confidence,
-                    COALESCE(a.emotion, '') AS asr_emotion,
-                    COALESCE(a.confidence, 0.0) AS asr_confidence,
-                    COALESCE(o.emotion, '') AS ocr_emotion,
-                    COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
-                    COALESCE(f.path_annotated_faces, '') AS annotated_image,
-                    CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
-                    CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
-                    CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
-                FROM top_embeddings te
-                LEFT JOIN Face f ON f.embedding_id = te.embedding_id
-                LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
-                LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
-            )
-            SELECT 
-                embedding_id,
-                location,
-                frame_time,
-                frame_location,
-                similarity,
-                annotated_image,
-                face_emotion, face_confidence,
-                asr_emotion, asr_confidence,
-                ocr_emotion, ocr_confidence,
-                (
-                    0.5 * similarity +
-                    0.5 * (
-                        (2.0 / 8.0) * ocr_confidence +
-                        (3.0 / 8.0) * asr_confidence +
-                        (3.0 / 8.0) * face_confidence
-                    )
-                ) AS combined_score
-            FROM joined
-            WHERE face_match + asr_match + ocr_match > 0
-            ORDER BY combined_score DESC
-            LIMIT 10;
-        """, (
-            query_embedding.tolist(),
-            emotion.lower(),
-            emotion.lower(),
-            emotion.lower()
-        ))
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    annotated_image,
+                    face_emotion, face_confidence,
+                    asr_emotion, asr_confidence,
+                    ocr_emotion, ocr_confidence,
+                    (
+                        0.5 * similarity +
+                        0.5 * (
+                            (2.0 / 8.0) * ocr_confidence +
+                            (3.0 / 8.0) * asr_confidence +
+                            (3.0 / 8.0) * face_confidence
+                        )
+                    ) AS combined_score
+                FROM joined
+                WHERE face_match + asr_match + ocr_match > 0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (
+                query_embedding.tolist(),
+                emotion.lower(),
+                emotion.lower(),
+                emotion.lower()
+            ))
+        else:
+            cursor.execute("""
+                WITH top_embeddings AS (
+                    SELECT 
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY location, similarity DESC
+                    LIMIT 1000
+                ),
+                scored_ocr AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(o.emotion, '') AS emotion,
+                        COALESCE(o.sentiment, '') AS sentiment,
+                        COALESCE(o.sentiment_confidence, 0.0) AS sentiment_confidence,
+                        COALESCE(o.ocr_confidence, 0.0) AS ocr_confidence,
+                        COALESCE(o.path_annotated_location, '') AS path_annotated_location,
+                        COALESCE(o.text, '') AS text,
+                        COALESCE(o.x, 0.0) AS x,
+                        COALESCE(o.y, 0.0) AS y,
+                        COALESCE(o.w, 0.0) AS w,
+                        COALESCE(o.h, 0.0) AS h,
+                        CASE
+                            WHEN LOWER(o.emotion) = LOWER(%s) THEN 1.0
+                            ELSE 0.0
+                        END AS emotion_match,
+                        ((te.similarity * 0.5) + (COALESCE(o.sentiment_confidence, 0.0) * 0.5)) AS combined_score
+                    FROM top_embeddings te
+                    LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                )
+                SELECT DISTINCT ON (location)
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    emotion_match,
+                    combined_score,
+                    path_annotated_location,
+                    emotion,
+                    sentiment_confidence,
+                    ocr_confidence,
+                    sentiment,
+                    text,
+                    x, y, w, h
+                FROM scored_ocr
+                WHERE emotion_match = 1.0
+                ORDER BY location, combined_score DESC
+                LIMIT 10;
+            """, (query_embedding.tolist(), emotion.lower()))
 
         result = cursor.fetchall()
         cursor.close()
 
         response = []
-        seen_videos = set()
         for row in result:
             (
                 embedding_id,
@@ -692,11 +889,6 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
 
             if not os.path.exists(full_path):
                 continue
-
-            if not allow_duplicates:
-                if full_path in seen_videos:
-                    continue
-                seen_videos.add(full_path)
 
             response.append({
                 "embedding_id": embedding_id,
@@ -817,7 +1009,72 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
             query_embedding = get_embedding(input_text=query.lower())
             query_embedding = normalize_embedding(query_embedding)
 
-            cursor.execute("""
+            if allow_duplicates:
+                cursor.execute("""
+                        WITH top_embeddings AS (
+                            SELECT 
+                                me.id AS embedding_id,
+                                mo.location,
+                                me.frame_time,
+                                me.frame_location,
+                                1 - (me.embedding <=> %s::vector) AS similarity
+                            FROM multimedia_embeddings me
+                            JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                            ORDER BY location, similarity DESC
+                            LIMIT 600
+                        ),
+                        joined AS (
+                            SELECT 
+                                te.embedding_id,
+                                te.location,
+                                te.frame_time,
+                                te.frame_location,
+                                te.similarity,
+                                COALESCE(f.emotion, '') AS face_emotion,
+                                COALESCE(f.confidence, 0.0) AS face_confidence,
+                                COALESCE(a.emotion, '') AS asr_emotion,
+                                COALESCE(a.confidence, 0.0) AS asr_confidence,
+                                COALESCE(o.emotion, '') AS ocr_emotion,
+                                COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
+                                COALESCE(f.path_annotated_faces, '') AS annotated_image,
+                                CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
+                                CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
+                                CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
+                            FROM top_embeddings te
+                            LEFT JOIN Face f ON f.embedding_id = te.embedding_id
+                            LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                            LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                        )
+                        SELECT 
+                            embedding_id,
+                            location,
+                            frame_time,
+                            frame_location,
+                            similarity,
+                            annotated_image,
+                            face_emotion, face_confidence,
+                            asr_emotion, asr_confidence,
+                            ocr_emotion, ocr_confidence,
+                            (
+                                0.5 * similarity +
+                                0.5 * (
+                                    (2.0 / 8.0) * ocr_confidence +
+                                    (3.0 / 8.0) * asr_confidence +
+                                    (3.0 / 8.0) * face_confidence
+                                )
+                            ) AS combined_score
+                        FROM joined
+                        WHERE face_match + asr_match + ocr_match > 0
+                        ORDER BY location, combined_score DESC
+                        LIMIT 10;
+                    """, (
+                    query_embedding.tolist(),
+                    emotion.lower(),
+                    emotion.lower(),
+                    emotion.lower()
+                ))
+            else:
+                cursor.execute("""
                     WITH top_embeddings AS (
                         SELECT 
                             me.id AS embedding_id,
@@ -827,7 +1084,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                             1 - (me.embedding <=> %s::vector) AS similarity
                         FROM multimedia_embeddings me
                         JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                        ORDER BY similarity DESC
+                        ORDER BY location, similarity DESC
                         LIMIT 600
                     ),
                     joined AS (
@@ -852,7 +1109,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                         LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
                         LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
                     )
-                    SELECT 
+                    SELECT DISTINCT ON (location)
                         embedding_id,
                         location,
                         frame_time,
@@ -872,20 +1129,19 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                         ) AS combined_score
                     FROM joined
                     WHERE face_match + asr_match + ocr_match > 0
-                    ORDER BY combined_score DESC
+                    ORDER BY location, combined_score DESC
                     LIMIT 10;
                 """, (
-                query_embedding.tolist(),
-                emotion.lower(),
-                emotion.lower(),
-                emotion.lower()
-            ))
+                    query_embedding.tolist(),
+                    emotion.lower(),
+                    emotion.lower(),
+                    emotion.lower()
+                ))
 
             result = cursor.fetchall()
             cursor.close()
 
             response = []
-            seen_videos = set()
             for row in result:
                 (
                     embedding_id,
@@ -905,10 +1161,6 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                 if not os.path.exists(full_path):
                     continue
 
-                if not allow_duplicates:
-                    if full_path in seen_videos:
-                        continue
-                    seen_videos.add(full_path)
 
                 response.append({
                     "llama_updated_query": query,
@@ -972,7 +1224,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                         (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
                     ) AS annotated_image
                 FROM multimedia_embeddings me
-                ORDER BY similarity DESC
+                ORDER BY location, similarity DESC
                 LIMIT 10;
             """
             cursor.execute(filter_query, (projected.tolist(),))
@@ -997,45 +1249,78 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
             else:
                 raise HTTPException(status_code=400, detail="Invalid datatype")
 
-            query = f"""
-                SELECT 
-                    me.id,
-                    (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-                    me.frame_time,
-                    me.frame_location,
-                    1 - (me.embedding <=> %s::vector) AS similarity,
-                    {image_col} AS annotated_image
-                FROM multimedia_embeddings me
-                JOIN {join_table} ON {join_condition}
-                WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
-                ORDER BY similarity DESC
-                LIMIT 10;
-            """
-            cursor.execute(query, (projected.tolist(), emotion))
-            results = cursor.fetchall()
 
-            if len(results) == 0:
-                cursor.execute("""
+            if allow_duplicates:
+                query = f"""
                     SELECT 
                         me.id,
                         (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
                         me.frame_time,
                         me.frame_location,
                         1 - (me.embedding <=> %s::vector) AS similarity,
-                        COALESCE(
-                            (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
-                            (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
-                        ) AS annotated_image
+                        {image_col} AS annotated_image
                     FROM multimedia_embeddings me
+                    JOIN {join_table} ON {join_condition}
+                    WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
                     ORDER BY similarity DESC
                     LIMIT 10;
-                """, (projected.tolist(),))
+                """
+            else:
+                query = f"""
+                    SELECT DISTINCT ON (location)
+                        me.id,
+                        (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity,
+                        {image_col} AS annotated_image
+                    FROM multimedia_embeddings me
+                    JOIN {join_table} ON {join_condition}
+                    WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
+                    ORDER BY location, similarity DESC
+                    LIMIT 10;
+                """
+            cursor.execute(query, (projected.tolist(), emotion))
+            results = cursor.fetchall()
+
+            if len(results) == 0:
+                if not allow_duplicates:
+                    cursor.execute("""
+                        SELECT 
+                            me.id,
+                            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                            me.frame_time,
+                            me.frame_location,
+                            1 - (me.embedding <=> %s::vector) AS similarity,
+                            COALESCE(
+                                (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
+                                (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
+                            ) AS annotated_image
+                        FROM multimedia_embeddings me
+                        ORDER BY location, similarity DESC
+                        LIMIT 10;
+                    """, (projected.tolist(),))
+                else:
+                    cursor.execute("""
+                        SELECT DISTINCT ON (location)
+                            me.id,
+                            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                            me.frame_time,
+                            me.frame_location,
+                            1 - (me.embedding <=> %s::vector) AS similarity,
+                            COALESCE(
+                                (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
+                                (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
+                            ) AS annotated_image
+                        FROM multimedia_embeddings me
+                        ORDER BY location, similarity DESC
+                        LIMIT 10;
+                    """, (projected.tolist(),))
                 results = cursor.fetchall()
 
         cursor.close()
 
         response = []
-        seen_videos = set()
 
         for row in results:
             embedding_id, location, frame_time, frame_location, similarity, annotated_image = row
@@ -1043,11 +1328,6 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
 
             if not os.path.exists(full_path):
                 continue
-
-            if not allow_duplicates:
-                if full_path in seen_videos:
-                    continue
-                seen_videos.add(full_path)
 
             response.append({
                 "embedding_id": embedding_id,
