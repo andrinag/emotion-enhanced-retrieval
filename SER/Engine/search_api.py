@@ -317,7 +317,8 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
                 "similarity": round(float(similarity), 3),
                 "sentiment_match": float(sentiment_match),
                 "final_score": round(float(final_score), 3),
-                "annotated_image": annotated_path if annotated_path else frame_location,
+                "annotated_image": annotated_path if annotated_path else None,
+                "frame_location" : frame_location,
                 "face_emotion": emotion,
                 "face_confidence": round(float(confidence), 3) if confidence is not None else None
             })
@@ -435,7 +436,7 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
                 "embedding_id": embedding_id,
                 "video_path": full_path,
                 "frame_time": float(frame_time),
-                "annotated_image": frame_location,
+                "frame_location": frame_location,
                 "similarity": round(float(similarity), 3),
                 "sentiment_match": float(sentiment_match),
                 "final_score": round(float(final_score), 3),
@@ -569,7 +570,8 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
                 "similarity": round(float(similarity), 3),
                 "sentiment_match": float(sentiment_match),
                 "final_score": round(float(final_score), 3),
-                "annotated_image": annotated_path if annotated_path else frame_location,
+                "annotated_image": annotated_path if annotated_path else None,
+                "frame_location": frame_location,
                 "ocr_text": ocr_text,
                 "ocr_emotion": emotion,
                 "ocr_sentiment": sentiment_label,
@@ -702,7 +704,8 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
                 "frame_time": float(frame_time),
                 "similarity": round(float(similarity), 3),
                 "final_score": round(float(combined_score), 3),
-                "annotated_image": annotated_image if annotated_image else frame_location,
+                "annotated_image": annotated_image if annotated_image else None,
+                "frame_location": frame_location,
                 "face_emotion": face_emotion,
                 "face_confidence": round(float(face_confidence), 3),
                 "asr_emotion": asr_emotion,
@@ -820,6 +823,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                             me.id AS embedding_id,
                             mo.location,
                             me.frame_time,
+                            me.frame_location,
                             1 - (me.embedding <=> %s::vector) AS similarity
                         FROM multimedia_embeddings me
                         JOIN multimedia_objects mo ON mo.object_id = me.object_id
@@ -831,6 +835,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                             te.embedding_id,
                             te.location,
                             te.frame_time,
+                            te.frame_location,
                             te.similarity,
                             COALESCE(f.emotion, '') AS face_emotion,
                             COALESCE(f.confidence, 0.0) AS face_confidence,
@@ -851,6 +856,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                         embedding_id,
                         location,
                         frame_time,
+                        frame_location,
                         similarity,
                         annotated_image,
                         face_emotion, face_confidence,
@@ -885,6 +891,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                     embedding_id,
                     location,
                     frame_time,
+                    frame_location,
                     similarity,
                     annotated_image,
                     face_emotion, face_confidence,
@@ -911,6 +918,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                     "similarity": round(float(similarity), 3),
                     "final_score": round(float(combined_score), 3),
                     "annotated_image": annotated_image if annotated_image else None,
+                    "frame_location": frame_location,
                     "face_emotion": face_emotion,
                     "face_confidence": round(float(face_confidence), 3),
                     "asr_emotion": asr_emotion,
@@ -957,11 +965,11 @@ async def search_by_direction_pair(source_id: int, target_id: int, allow_duplica
                 me.id,
                 (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
                 me.frame_time,
+                me.frame_location,
                 1 - (me.embedding <=> %s::vector) AS similarity,
                 COALESCE(
                     (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
-                    (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
-                    me.frame_location
+                    (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
                 ) AS annotated_image
             FROM multimedia_embeddings me
             ORDER BY similarity DESC
@@ -975,7 +983,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, allow_duplica
         seen_videos = set()
 
         for row in results:
-            embedding_id, location, frame_time, similarity, annotated_image = row
+            embedding_id, location, frame_time, frame_location, similarity, annotated_image = row
 
             full_path = os.path.join(VIDEO_DIRECTORY, location)
 
@@ -992,7 +1000,8 @@ async def search_by_direction_pair(source_id: int, target_id: int, allow_duplica
                 "video_path": full_path,
                 "frame_time": frame_time,
                 "similarity": float(similarity),
-                "annotated_image": annotated_image if annotated_image else None
+                "annotated_image": annotated_image if annotated_image else None,
+                "frame_location": frame_location
             })
 
         return JSONResponse(response)
@@ -1030,11 +1039,11 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                     me.id,
                     (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
                     me.frame_time,
+                    frame_location, 
                     1 - (me.embedding <=> %s::vector) AS similarity,
                     COALESCE(
                         (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
-                        (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1),
-                        me.frame_location
+                        (SELECT path_annotated_faces FROM Face WHERE embedding_id = me.id LIMIT 1)
                     ) AS annotated_image
                 FROM multimedia_embeddings me
                 ORDER BY similarity DESC
@@ -1067,6 +1076,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                     me.id,
                     (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
                     me.frame_time,
+                    me.frame_location,
                     1 - (me.embedding <=> %s::vector) AS similarity,
                     COALESCE({image_col}, me.frame_location) AS annotated_image
                 FROM multimedia_embeddings me
@@ -1084,6 +1094,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                         me.id,
                         (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
                         me.frame_time,
+                        me.frame_location,
                         1 - (me.embedding <=> %s::vector) AS similarity,
                         COALESCE(
                             (SELECT path_annotated_location FROM OCR WHERE embedding_id = me.id LIMIT 1),
@@ -1102,7 +1113,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
         seen_videos = set()
 
         for row in results:
-            embedding_id, location, frame_time, similarity, annotated_image = row
+            embedding_id, location, frame_time, frame_location, similarity, annotated_image = row
             full_path = os.path.join(VIDEO_DIRECTORY, location)
 
             if not os.path.exists(full_path):
@@ -1118,7 +1129,8 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                 "video_path": full_path,
                 "frame_time": frame_time,
                 "similarity": float(similarity),
-                "annotated_image": annotated_image if annotated_image else None
+                "annotated_image": annotated_image if annotated_image else None,
+                "frame_location": frame_location
             })
 
         return JSONResponse(response)
