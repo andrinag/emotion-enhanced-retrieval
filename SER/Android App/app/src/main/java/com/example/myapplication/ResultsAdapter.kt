@@ -64,6 +64,12 @@ class ResultsAdapter(
                 .load(item.annotatedImageUrl)
                 .placeholder(android.R.drawable.ic_menu_report_image)
                 .into(holder.imageView)
+        }
+        if (!item.frameLocation.isNullOrBlank()) {
+            Glide.with(context)
+                .load(item.frameLocation)
+                .placeholder(android.R.drawable.ic_menu_report_image)
+                .into(holder.imageView)
         } else {
             // Otherwise, try to generate a thumbnail from the video
             val thumbnail = generateVideoThumbnail(item.videoUrl, (item.frameTime * 1000).toLong())
@@ -86,6 +92,7 @@ class ResultsAdapter(
             intent.putExtra("dataType", dataType)
             intent.putExtra("suggestionMode", suggestionMode)
             intent.putExtra("duplicateVideos", duplicateVideos)
+            intent.putExtra("frame_location", item.frameLocation)
             context.startActivity(intent)
         }
     }

@@ -20,6 +20,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -224,7 +225,13 @@ class VideoPlayerActivity : AppCompatActivity() {
                             continue
                         }
                         var annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+                        Log.d("Suggestions", "annotated image is $annotatedImage }}")
                         if (annotatedImage.isNullOrBlank() || annotatedImage.contains("null")) {
+                            annotatedImage = null
+                        }
+                        var frameLocation = obj.optString("frame_location", null)?.let { "$baseUrl/$it" }
+                        Log.d("Suggestions", "annotated image is $frameLocation }}")
+                        if (frameLocation.isNullOrBlank() || frameLocation.contains("null")) {
                             annotatedImage = null
                         }
 
@@ -234,6 +241,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 videoUrl = videoPath,
                                 frameTime = frameTime,
                                 annotatedImageUrl = annotatedImage,
+                                frameLocation = frameLocation,
                                 embeddingID = embeddingId
                             )
                         )
