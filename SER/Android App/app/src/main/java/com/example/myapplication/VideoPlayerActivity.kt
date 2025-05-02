@@ -88,18 +88,19 @@ class VideoPlayerActivity : AppCompatActivity() {
         Log.d("LLAMA", "query is $currentQuery")
         Log.d("SUGGESTION", "current suggestionMode is $suggestionMode in oncreate method")
 
-        if (currentEmbeddingId != -1) {
-            if (suggestionMode == "nearest") {
-                fetchDirectionRecommendations(currentEmbeddingId)
-                checkboxShowLlamaQuery.visibility = View.GONE
+
+
+        if (suggestionMode == "nearest") {
+            checkboxShowLlamaQuery.visibility = View.GONE
+            if (currentEmbeddingId == -1) {
+                Log.e("EmbeddingID", "EmbeddingId is $currentEmbeddingId")
             }
-            if (suggestionMode == "llm") {
-                currentQuery = intent.getStringExtra("currentQuery") ?: ""
-                //sendQueryRequestLlama(this, currentQuery)
-            }
+        }
+        if (suggestionMode == "llm") {
+            // the query to be updated by the llama model
+            currentQuery = intent.getStringExtra("currentQuery") ?: ""
         } else {
             checkboxShowLlamaQuery.visibility = View.GONE
-            Log.e("suggestionMode", "No embedding ID passed to the video player or the suggestionMode is none")
         }
 
 
@@ -219,6 +220,9 @@ class VideoPlayerActivity : AppCompatActivity() {
                         val frameTime = obj.getDouble("frame_time")
                         val similarity = obj.getDouble("similarity")
                         val embeddingId = obj.getInt("embedding_id")
+                        if (embeddingId == currentEmbeddingId) {
+                            continue
+                        }
                         var annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
                         if (annotatedImage.isNullOrBlank() || annotatedImage.contains("null")) {
                             annotatedImage = null
@@ -242,7 +246,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                         directionRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
                         directionRecyclerView.adapter = ResultsAdapter(directionResults, this, currentQuery, emotion = emotionSpinner, dataType = dataType, suggestionMode, duplicateVideos)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
-                        findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from $suggestionMode"
+                        findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from Nearest Neighbor Search"
                         directionRecyclerView.visibility = View.VISIBLE
                     }
 
@@ -335,7 +339,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                         llmRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
                         llmRecyclerView.adapter = ResultsAdapter(llmResults, this, query = currentQuery, emotion = emotionSpinner, dataType = dataType, suggestionMode, duplicateVideos)
                         findViewById<TextView>(R.id.suggestionsLabel).visibility = View.VISIBLE
-                        findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from $suggestionMode"
+                        findViewById<TextView>(R.id.suggestionsLabel).text = "Displaying Suggestions from Large Language Model"
                         llmRecyclerView.visibility = View.VISIBLE
                     }
 
@@ -386,11 +390,11 @@ class VideoPlayerActivity : AppCompatActivity() {
                     val jsonResponse = JSONObject(response)
                     val sentiment = jsonResponse.optString("sentiment", "Unknown")
                     userEmotion = jsonResponse.optString("emotion", "Unknown")
-                    if ((userEmotion == "sad" || userEmotion == "angry") && !expectingAnswerLlama) {
+                    if ((userEmotion == "sad" || userEmotion == "angry" || userEmotion == "fear") && !expectingAnswerLlama) {
                         negativeSentimentCounter++
                         Log.d("LLAMA", "Negative sentiment detected. Count: $negativeSentimentCounter")
 
-                        if (negativeSentimentCounter >= 1 && !suggestionsAlreadyTriggered) {
+                        if (negativeSentimentCounter >= 3 && !suggestionsAlreadyTriggered) {
                             suggestionsAlreadyTriggered = true
                             expectingAnswerLlama = true
 
@@ -403,7 +407,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                             }
                             val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
 
-                            Log.d("SUGGESTION", "suggestionmode is $suggestionMode")
+                            Log.d("SUGGESTION", "suggestionMode is $suggestionMode")
 
                             if (suggestionMode == "nearest") {
                                 fetchDirectionRecommendations(currentEmbeddingId)
