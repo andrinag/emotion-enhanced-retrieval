@@ -93,6 +93,7 @@ class ResultsAdapter(
             intent.putExtra("suggestionMode", suggestionMode)
             intent.putExtra("duplicateVideos", duplicateVideos)
             intent.putExtra("frame_location", item.frameLocation)
+            intent.putExtra("previous_embedding_id", item.previousEmbeddingID)
             context.startActivity(intent)
         }
     }

@@ -60,6 +60,8 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var checkboxShowLlamaQuery: CheckBox
     private lateinit var llamaQueryText: TextView
     private var llamaUpdatedQuery: String = ""
+    private var previousEmbeddingId = -1
+    private var currentEmbeddingId = -1
 
 
     /**
@@ -83,7 +85,16 @@ class VideoPlayerActivity : AppCompatActivity() {
 
 
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        if (currentEmbeddingId == -1) {
+            Log.e("EmbeddingID", "CurrentEmbeddingId is $currentEmbeddingId")
+        }
+        previousEmbeddingId = intent.getIntExtra("previous_embedding_id", -1)
+        // In the first "round" the nearest neighbor search has no distance
+        if (previousEmbeddingId == -1 ) {
+            Log.e("EmbeddingID", "PreviousEmbeddingId is $previousEmbeddingId")
+            previousEmbeddingId = currentEmbeddingId
+        }
         duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
         currentQuery = intent.getStringExtra("currentQuery") ?: "No Query was sent, just invent somethings please."
         Log.d("LLAMA", "query is $currentQuery")
@@ -93,9 +104,6 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         if (suggestionMode == "nearest") {
             checkboxShowLlamaQuery.visibility = View.GONE
-            if (currentEmbeddingId == -1) {
-                Log.e("EmbeddingID", "EmbeddingId is $currentEmbeddingId")
-            }
         }
         if (suggestionMode == "llm") {
             // the query to be updated by the llama model
@@ -191,17 +199,12 @@ class VideoPlayerActivity : AppCompatActivity() {
      * with the first ID being the one from the embedding of the last video played and the second
      * one being the embedding ID of the current video played.
      */
-    fun fetchDirectionRecommendations(selectedEmbeddingId: Int) {
+    fun fetchDirectionRecommendations() {
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
-        if (currentEmbeddingId == -1) {
-            Log.e("DIRECTION_SEARCH", "Current embedding ID not found in intent.")
-            return
-        }
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
         Log.d("DATATYPE", dataType)
-        val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/$duplicateVideos/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId"
+        val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/$duplicateVideos/?source_id=$currentEmbeddingId&target_id=$previousEmbeddingId"
         Log.d("DIRECTION_SEARCH", "Fetching from URL: $url")
 
         val requestQueue = Volley.newRequestQueue(this)
@@ -242,7 +245,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 frameTime = frameTime,
                                 annotatedImageUrl = annotatedImage,
                                 frameLocation = frameLocation,
-                                embeddingID = embeddingId
+                                embeddingID = embeddingId,
+                                previousEmbeddingID = currentEmbeddingId
                             )
                         )
 
@@ -287,6 +291,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     ) {
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
+        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         Log.d("DATATYPE", dataType)
         val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner/$duplicateVideos"
@@ -321,7 +326,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 videoUrl = videoPath,
                                 frameTime = frameTime,
                                 annotatedImageUrl = annotatedImage,
-                                embeddingID = embeddingId
+                                embeddingID = embeddingId,
+                                previousEmbeddingID = currentEmbeddingId
                             )
                         )
                     }
@@ -418,7 +424,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                             Log.d("SUGGESTION", "suggestionMode is $suggestionMode")
 
                             if (suggestionMode == "nearest") {
-                                fetchDirectionRecommendations(currentEmbeddingId)
+                                fetchDirectionRecommendations()
                             }
                             if (suggestionMode == "llm") {
                                 sendQueryRequestLlama(this, query)

@@ -40,13 +40,14 @@ class SearchResultsActivity : AppCompatActivity() {
             Log.d("VIDEO", "received video path$videoUrl")
             val frameTime = obj.optString("frame_time", "0.0").toDoubleOrNull() ?: 0.0
             val embeddingID = obj.optInt("embedding_id", -1)
+            val previousEmbeddingID = obj.optInt("previous_embedding_id", -1)
             var annotatedImage = obj.optString("annotated_image", "")
             var frameLocation = obj.optString("frame_location", "")
             annotatedImage = if (annotatedImage.isNotBlank()) "$baseUrl/$annotatedImage" else ""
             frameLocation = if (frameLocation.isNotBlank()) "$baseUrl/$frameLocation" else ""
             Log.d("VIDEO", "received annotated image path$annotatedImage")
             Log.d("VIDEO", "received frame location image path $frameLocation")
-            videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage, frameLocation, embeddingID))
+            videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage, frameLocation, embeddingID, previousEmbeddingID))
         }
         Log.d("SearchResultsActivity", "Parsed ${videoResults.size} results")
 

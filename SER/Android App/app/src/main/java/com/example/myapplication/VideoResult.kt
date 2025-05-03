@@ -8,5 +8,6 @@ data class VideoResult(
     val frameTime: Double,
     val annotatedImageUrl: String? = null,
     val frameLocation: String? = null,
-    val embeddingID: Int
+    val embeddingID: Int,
+    val previousEmbeddingID: Int
 )
