@@ -44,7 +44,10 @@ class ResultsAdapter(
         return try {
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(videoUrl, HashMap()) // Use empty headers map
-            val bitmap = retriever.getFrameAtTime(frameTimeMillis * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            val bitmap = retriever.getFrameAtTime(
+                frameTimeMillis * 1000,
+                MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+            )
             retriever.release()
             Log.d("Thumbnail", "Generated thumbnail at $frameTimeMillis ms")
             bitmap

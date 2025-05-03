@@ -47,7 +47,16 @@ class SearchResultsActivity : AppCompatActivity() {
             frameLocation = if (frameLocation.isNotBlank()) "$baseUrl/$frameLocation" else ""
             Log.d("VIDEO", "received annotated image path$annotatedImage")
             Log.d("VIDEO", "received frame location image path $frameLocation")
-            videoResults.add(VideoResult(videoUrl, frameTime, annotatedImage, frameLocation, embeddingID, previousEmbeddingID))
+            videoResults.add(
+                VideoResult(
+                    videoUrl,
+                    frameTime,
+                    annotatedImage,
+                    frameLocation,
+                    embeddingID,
+                    previousEmbeddingID
+                )
+            )
         }
         Log.d("SearchResultsActivity", "Parsed ${videoResults.size} results")
 
@@ -57,8 +66,10 @@ class SearchResultsActivity : AppCompatActivity() {
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         val duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
         Log.d("Query", "Query in Search Result Acitivity is $query")
-        adapter = ResultsAdapter(videoResults, this, query, emotionSpinner, dataType,
-            suggestionMode, duplicateVideos) // pass the query to adapter
+        adapter = ResultsAdapter(
+            videoResults, this, query, emotionSpinner, dataType,
+            suggestionMode, duplicateVideos
+        ) // pass the query to adapter
 
         recyclerView.adapter = adapter
     }
@@ -72,6 +83,7 @@ class SearchResultsActivity : AppCompatActivity() {
                 finish()
                 true
             }
+
             else -> super.onOptionsItemSelected(item)
         }
     }

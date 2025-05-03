@@ -8,7 +8,6 @@ import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
-import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -19,7 +18,6 @@ import java.util.concurrent.ExecutorService
 import android.util.Base64
 import android.view.View
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
@@ -64,15 +62,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        editTextQuery = findViewById(R.id.editTextQuery)
-        settingsButton = findViewById(R.id.settingsButton)
-        helpButton = findViewById(R.id.helpButton)
-        refreshButton = findViewById(R.id.refreshButton)
-        buttonSearch = findViewById(R.id.buttonSearch)
-        cameraExecutor = Executors.newSingleThreadExecutor()
-        spinnerDataType = findViewById(R.id.spinnerDataType)
-        spinnerEmotion = findViewById(R.id.spinnerSentiment)
-
+        initViews()
 
         if (allPermissionsGranted()) {
             startCameraStream()
@@ -116,6 +106,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun initViews() {
+        editTextQuery = findViewById(R.id.editTextQuery)
+        settingsButton = findViewById(R.id.settingsButton)
+        helpButton = findViewById(R.id.helpButton)
+        refreshButton = findViewById(R.id.refreshButton)
+        buttonSearch = findViewById(R.id.buttonSearch)
+        cameraExecutor = Executors.newSingleThreadExecutor()
+        spinnerDataType = findViewById(R.id.spinnerDataType)
+        spinnerEmotion = findViewById(R.id.spinnerSentiment)
+    }
+
     override fun onResume() {
         super.onResume()
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
@@ -125,7 +126,10 @@ class MainActivity : AppCompatActivity() {
         val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
         val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
-        Log.d("CHEERUP", "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated")
+        Log.d(
+            "CHEERUP",
+            "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated"
+        )
 
 
         val jokeCardView = findViewById<CardView>(R.id.jokeCardView)
@@ -172,10 +176,12 @@ class MainActivity : AppCompatActivity() {
                         generateNewJokeOrCompliment("compliment")
                     }
                 }
+
                 jokesActivated -> generateNewJokeOrCompliment("joke")
                 complimentsActivated -> generateNewJokeOrCompliment("compliment")
             }
         }
+        startCameraStream()
 
     }
 
@@ -226,7 +232,8 @@ class MainActivity : AppCompatActivity() {
         emotion: String,
         callback: (JSONArray) -> Unit
     ) {
-        val url = "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion/$duplicateVideos"
+        val url =
+            "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion/$duplicateVideos"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
