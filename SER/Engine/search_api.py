@@ -241,7 +241,7 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 200
+                LIMIT 1000
             ),
             scored_faces AS (
                 SELECT 
@@ -275,7 +275,7 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
             FROM scored_faces
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
-            LIMIT 10;
+            LIMIT 20;
         """, (query_embedding.tolist(), emotion_filter))
 
         result = cursor.fetchall()
@@ -396,7 +396,7 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
             FROM scored_asr
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
-            LIMIT 10;
+            LIMIT 20;
         """, (query_embedding.tolist(), emotion_filter))
 
         result = cursor.fetchall()
@@ -524,7 +524,7 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
             FROM scored_ocr
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
-            LIMIT 10;
+            LIMIT 20;
         """, (query_embedding.tolist(), emotion.lower()))
 
         result = cursor.fetchall()
@@ -616,7 +616,7 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
                 FROM multimedia_embeddings me
                 JOIN multimedia_objects mo ON mo.object_id = me.object_id
                 ORDER BY similarity DESC
-                LIMIT 600
+                LIMIT 800
             ),
             joined AS (
                 SELECT 
@@ -661,7 +661,7 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
             FROM joined
             WHERE face_match + asr_match + ocr_match > 0
             ORDER BY combined_score DESC
-            LIMIT 10;
+            LIMIT 20;
         """, (
             query_embedding.tolist(),
             emotion.lower(),
@@ -828,7 +828,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                         FROM multimedia_embeddings me
                         JOIN multimedia_objects mo ON mo.object_id = me.object_id
                         ORDER BY similarity DESC
-                        LIMIT 600
+                        LIMIT 800
                     ),
                     joined AS (
                         SELECT 
@@ -873,7 +873,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
                     FROM joined
                     WHERE face_match + asr_match + ocr_match > 0
                     ORDER BY combined_score DESC
-                    LIMIT 10;
+                    LIMIT 20;
                 """, (
                 query_embedding.tolist(),
                 emotion.lower(),
@@ -973,7 +973,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                     ) AS annotated_image
                 FROM multimedia_embeddings me
                 ORDER BY similarity DESC
-                LIMIT 10;
+                LIMIT 20;
             """
             cursor.execute(filter_query, (projected.tolist(),))
             results = cursor.fetchall()
@@ -1009,7 +1009,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                 JOIN {join_table} ON {join_condition}
                 WHERE ({emotion_col} IS NOT NULL AND LOWER({emotion_col}) = LOWER(%s))
                 ORDER BY similarity DESC
-                LIMIT 10;
+                LIMIT 20;
             """
             cursor.execute(query, (projected.tolist(), emotion))
             results = cursor.fetchall()
@@ -1028,7 +1028,7 @@ async def search_by_direction_pair(source_id: int, target_id: int, datatype: str
                         ) AS annotated_image
                     FROM multimedia_embeddings me
                     ORDER BY similarity DESC
-                    LIMIT 10;
+                    LIMIT 20;
                 """, (projected.tolist(),))
                 results = cursor.fetchall()
 
