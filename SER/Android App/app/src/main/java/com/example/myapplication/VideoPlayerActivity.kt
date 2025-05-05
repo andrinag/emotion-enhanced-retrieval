@@ -48,8 +48,8 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: ResultsAdapter
-    private lateinit var checkboxShowLlamaQuery: CheckBox
     private lateinit var llamaQueryText: TextView
+    private lateinit var buttonShowLlamaQuery: Button
 
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
 
@@ -91,8 +91,8 @@ class VideoPlayerActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         suggestionsRecyclerView = findViewById(R.id.suggestionsRecyclerView)
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        checkboxShowLlamaQuery = findViewById(R.id.checkboxShowLlamaQuery)
         llamaQueryText = findViewById(R.id.llamaQueryText)
+        buttonShowLlamaQuery = findViewById(R.id.buttonShowLlamaQuery)
     }
 
     /**
@@ -104,15 +104,6 @@ class VideoPlayerActivity : AppCompatActivity() {
         previousEmbeddingId = intent.getIntExtra("previous_embedding_id", -1).takeIf { it != -1 } ?: currentEmbeddingId
         duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
         currentQuery = intent.getStringExtra("currentQuery") ?: ""
-
-        if (suggestionMode != "llm") {
-            checkboxShowLlamaQuery.visibility = View.GONE
-        }
-
-        checkboxShowLlamaQuery.setOnCheckedChangeListener { _, isChecked ->
-            llamaQueryText.visibility = if (isChecked && llamaUpdatedQuery.isNotBlank()) View.VISIBLE else View.GONE
-            if (isChecked) llamaQueryText.text = llamaUpdatedQuery
-        }
     }
 
     /**
@@ -297,6 +288,20 @@ class VideoPlayerActivity : AppCompatActivity() {
                         val embeddingId = obj.getInt("embedding_id")
                         llamaUpdatedQuery = obj.getString("llama_updated_query")
                         Log.d("LLAMA", "new llama query is $llamaUpdatedQuery")
+                        llamaQueryText.text = llamaUpdatedQuery.take(50) + "…"
+                        runOnUiThread {
+                            if (llamaUpdatedQuery.isNotBlank()) {
+                                buttonShowLlamaQuery.visibility = View.VISIBLE
+                                buttonShowLlamaQuery.setOnClickListener {
+                                    val intent = Intent(this, LlamaQueryActivity::class.java)
+                                    intent.putExtra("llama_query", llamaUpdatedQuery)
+                                    startActivity(intent)
+                                }
+                            } else {
+                                buttonShowLlamaQuery.visibility = View.GONE
+                            }
+                        }
+
 
                         var annotatedImagePath = obj.optString("annotated_image", null)
                         if (annotatedImagePath.isNullOrBlank() || annotatedImagePath.contains("null")) {
@@ -316,16 +321,6 @@ class VideoPlayerActivity : AppCompatActivity() {
                     }
 
                     val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-                    if (suggestionMode == "llm" && llamaUpdatedQuery.isNotBlank()) {
-                        runOnUiThread {
-                            checkboxShowLlamaQuery.visibility = View.VISIBLE
-                        }
-                    } else {
-                        runOnUiThread {
-                            checkboxShowLlamaQuery.visibility = View.GONE
-                            llamaQueryText.visibility = View.GONE
-                        }
-                    }
 
                     suggestionsAdapter = ResultsAdapter(llmResults, this, query, emotionSpinner, dataType, suggestionMode, duplicateVideos)
                     suggestionsRecyclerView.adapter = suggestionsAdapter
