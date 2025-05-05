@@ -803,7 +803,8 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
         "http://localhost:11434/api/generate",
         json={
             "model": "tinyllama",
-            "prompt": f"Please give me as many words as possible that somehow relate to this query:\n\n{query}",
+            "prompt": f"Please give a few short keywords to this query:\n\n{query}",
+            "num_predict": 30,
             "stream": False
         }
     )
