@@ -102,7 +102,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingBottom="8dp"
-            android:text="How would you like the suggestions to be made? "
+            android:text="Suggestion Mode"
             android:textSize="16sp" />
 
         <RadioGroup

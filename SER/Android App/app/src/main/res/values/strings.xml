@@ -2,15 +2,15 @@
     <string-array name="data_type_array">
         <item>all</item>
         <item>face</item>
-        <item>ocr</item>
         <item>asr</item>
+        <item>ocr</item>
     </string-array>
 
     <string-array name="emotion_type_array">
+        <item>neutral</item>
         <item>happy</item>
         <item>sad</item>
         <item>angry</item>
-        <item>neutral</item>
         <item>surprise</item>
         <item>fear</item>
         <item>disgust</item>
