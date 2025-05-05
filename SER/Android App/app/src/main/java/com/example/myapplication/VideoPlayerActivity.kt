@@ -303,17 +303,23 @@ class VideoPlayerActivity : AppCompatActivity() {
                         }
 
 
-                        var annotatedImagePath = obj.optString("annotated_image", null)
-                        if (annotatedImagePath.isNullOrBlank() || annotatedImagePath.contains("null")) {
-                            annotatedImagePath = null
+                        var annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+                        Log.d("Suggestions", "annotated image is $annotatedImage }}")
+                        if (annotatedImage.isNullOrBlank() || annotatedImage.contains("null")) {
+                            annotatedImage = null
                         }
-                        val annotatedImage = annotatedImagePath?.let { "$baseUrl/$it" }
+                        var frameLocation = obj.optString("frame_location", null)?.let { "$baseUrl/$it" }
+                        Log.d("Suggestions", "annotated image is $frameLocation }}")
+                        if (frameLocation.isNullOrBlank() || frameLocation.contains("null")) {
+                            annotatedImage = null
+                        }
 
                         llmResults.add(
                             VideoResult(
                                 videoUrl = videoPath,
                                 frameTime = frameTime,
                                 annotatedImageUrl = annotatedImage,
+                                frameLocation = frameLocation,
                                 embeddingID = embeddingId,
                                 previousEmbeddingID = currentEmbeddingId
                             )
