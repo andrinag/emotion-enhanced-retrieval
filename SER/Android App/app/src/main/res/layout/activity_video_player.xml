@@ -71,14 +71,13 @@
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="20sp" />
 
-        <CheckBox
-            android:id="@+id/checkboxShowLlamaQuery"
-            android:layout_width="match_parent"
+        <Button
+            android:id="@+id/buttonShowLlamaQuery"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Show updated LLaMA query"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="20sp"
-            android:padding="8dp" />
+            android:layout_marginTop="12dp"
+            android:text="Show Updated Query"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/llamaQueryText"

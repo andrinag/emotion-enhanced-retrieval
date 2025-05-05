@@ -1,5 +1,7 @@
 package com.example.myapplication
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -8,21 +10,20 @@ import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
-import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import java.util.concurrent.ExecutorService
 import android.util.Base64
 import android.view.View
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.Spinner
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -48,9 +49,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settingsButton: Button
     private lateinit var helpButton: Button
     private lateinit var cameraExecutor: ExecutorService
-    private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
-    private lateinit var spinnerDataType: android.widget.Spinner
-    private lateinit var spinnerEmotion: android.widget.Spinner
+    private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
+    private lateinit var spinnerDataType: Spinner
+    private lateinit var spinnerEmotion: Spinner
     private lateinit var refreshButton: Button
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
@@ -64,22 +65,14 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        editTextQuery = findViewById(R.id.editTextQuery)
-        settingsButton = findViewById(R.id.settingsButton)
-        helpButton = findViewById(R.id.helpButton)
-        refreshButton = findViewById(R.id.refreshButton)
-        buttonSearch = findViewById(R.id.buttonSearch)
-        cameraExecutor = Executors.newSingleThreadExecutor()
-        spinnerDataType = findViewById(R.id.spinnerDataType)
-        spinnerEmotion = findViewById(R.id.spinnerSentiment)
-
+        initViews()
 
         if (allPermissionsGranted()) {
             startCameraStream()
         } else {
             ActivityCompat.requestPermissions(
                 this, REQUIRED_PERMISSIONS,
-                Companion.REQUEST_CODE_PERMISSIONS
+                REQUEST_CODE_PERMISSIONS
             )
         }
 
@@ -116,6 +109,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun initViews() {
+        editTextQuery = findViewById(R.id.editTextQuery)
+        settingsButton = findViewById(R.id.settingsButton)
+        helpButton = findViewById(R.id.helpButton)
+        refreshButton = findViewById(R.id.refreshButton)
+        buttonSearch = findViewById(R.id.buttonSearch)
+        cameraExecutor = Executors.newSingleThreadExecutor()
+        spinnerDataType = findViewById(R.id.spinnerDataType)
+        spinnerEmotion = findViewById(R.id.spinnerSentiment)
+    }
+
     override fun onResume() {
         super.onResume()
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
@@ -125,7 +129,10 @@ class MainActivity : AppCompatActivity() {
         val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
         val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
-        Log.d("CHEERUP", "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated")
+        Log.d(
+            "CHEERUP",
+            "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated"
+        )
 
 
         val jokeCardView = findViewById<CardView>(R.id.jokeCardView)
@@ -172,10 +179,12 @@ class MainActivity : AppCompatActivity() {
                         generateNewJokeOrCompliment("compliment")
                     }
                 }
+
                 jokesActivated -> generateNewJokeOrCompliment("joke")
                 complimentsActivated -> generateNewJokeOrCompliment("compliment")
             }
         }
+        startCameraStream()
 
     }
 
@@ -220,13 +229,14 @@ class MainActivity : AppCompatActivity() {
      * videos corresponding to the query, datatypes and emotion.
      */
     fun sendQueryRequestWithSentiment(
-        context: android.content.Context,
+        context: Context,
         query: String,
         dataType: String,
         emotion: String,
         callback: (JSONArray) -> Unit
     ) {
-        val url = "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion/$duplicateVideos"
+        val url =
+            "http://10.34.64.139:8001/search_combined_$dataType/$query/$emotion/$duplicateVideos"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
@@ -315,7 +325,7 @@ class MainActivity : AppCompatActivity() {
      * of it only containing a query and no sentiment / emotion.
      */
     fun sendQueryRequest(
-        context: android.content.Context,
+        context: Context,
         query: String,
         callback: (JSONArray) -> Unit
     ) {
@@ -383,7 +393,7 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == Companion.REQUEST_CODE_PERMISSIONS) {
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
                 startCameraStream()
             } else {
@@ -483,7 +493,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * sends post request (with VOLLEY) to the sentiment api
      */
-    fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
+    fun sendPostRequestSentiment(context: Context, base64Image: String) {
         val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
         val jsonBody = JSONObject()
         jsonBody.put("image", base64Image)
@@ -557,7 +567,7 @@ class MainActivity : AppCompatActivity() {
         requestQueue.add(stringRequest)
     }
 
-    fun sendPostRequestSentimentQuery(context: android.content.Context, query: String) {
+    fun sendPostRequestSentimentQuery(context: Context, query: String) {
         // TODO needs to be changed to the node adress
         val url = "http://10.34.64.139:8003/upload_query" // adress of the sentiment api
         val jsonBody = JSONObject()

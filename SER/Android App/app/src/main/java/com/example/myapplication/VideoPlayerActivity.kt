@@ -20,14 +20,12 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.DefaultRetryPolicy
 import com.android.volley.NetworkResponse
-import com.android.volley.Request
 import com.android.volley.Request.Method
 import com.android.volley.RequestQueue
 import com.android.volley.Response
@@ -48,18 +46,23 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var titleView: TextView
     private lateinit var cameraExecutor: ExecutorService
-    private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
-    private var userEmotion: String = "happy"
-    private var expectingAnswerLlama = false
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: ResultsAdapter
+    private lateinit var llamaQueryText: TextView
+    private lateinit var buttonShowLlamaQuery: Button
+
+    private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
+
+    private var userEmotion: String = "happy"
+    private var expectingAnswerLlama = false
     private var negativeSentimentCounter: Int = 0
     private var duplicateVideos = true
     private var currentQuery = ""
     private var suggestionsAlreadyTriggered = false
-    private lateinit var checkboxShowLlamaQuery: CheckBox
-    private lateinit var llamaQueryText: TextView
     private var llamaUpdatedQuery: String = ""
+    private var previousEmbeddingId = -1
+    private var currentEmbeddingId = -1
+    private var lastSentTime: Long = 0L
 
 
     /**
@@ -70,50 +73,43 @@ class VideoPlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video_player)
 
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)  // Enables the back arrow
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
+        initViews()
+        extractIntentExtras()
+        setupVideoPlayer()
+        setupCameraStream()
+    }
+
+    /**
+     * Initializes all of the necessary views of the Activity
+     */
+    fun initViews() {
         videoView = findViewById(R.id.videoPlayerView)
         progressBar = findViewById(R.id.loadingSpinner)
         titleView = findViewById(R.id.videoTitle)
         cameraExecutor = Executors.newSingleThreadExecutor()
         suggestionsRecyclerView = findViewById(R.id.suggestionsRecyclerView)
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        checkboxShowLlamaQuery = findViewById(R.id.checkboxShowLlamaQuery)
         llamaQueryText = findViewById(R.id.llamaQueryText)
+        buttonShowLlamaQuery = findViewById(R.id.buttonShowLlamaQuery)
+    }
 
-
+    /**
+     * Extracts all of the information / variables from the intent
+     */
+    private fun extractIntentExtras() {
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
+        previousEmbeddingId = intent.getIntExtra("previous_embedding_id", -1).takeIf { it != -1 } ?: currentEmbeddingId
         duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
-        currentQuery = intent.getStringExtra("currentQuery") ?: "No Query was sent, just invent somethings please."
-        Log.d("LLAMA", "query is $currentQuery")
-        Log.d("SUGGESTION", "current suggestionMode is $suggestionMode in oncreate method")
+        currentQuery = intent.getStringExtra("currentQuery") ?: ""
+    }
 
-
-
-        if (suggestionMode == "nearest") {
-            checkboxShowLlamaQuery.visibility = View.GONE
-            if (currentEmbeddingId == -1) {
-                Log.e("EmbeddingID", "EmbeddingId is $currentEmbeddingId")
-            }
-        }
-        if (suggestionMode == "llm") {
-            // the query to be updated by the llama model
-            currentQuery = intent.getStringExtra("currentQuery") ?: ""
-        } else {
-            checkboxShowLlamaQuery.visibility = View.GONE
-        }
-
-
-        // checks for permissions
-        if (allPermissionsGranted()) {
-            startCameraStream()
-        } else {
-            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS,
-                REQUEST_CODE_PERMISSIONS
-            )
-        }
-
+    /**
+     * Sets up the VideoPlayer and the mediaplayer
+     */
+    private fun setupVideoPlayer() {
         val videoUrl = intent.getStringExtra("video_url") ?: run {
             Toast.makeText(this, "Missing video URL", Toast.LENGTH_SHORT).show()
             finish()
@@ -122,8 +118,6 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         val frameTime = intent.getDoubleExtra("frame_time", 0.0)
         val imageUrl = intent.getStringExtra("annotated_image")
-
-        // Set filename as title
         val filename = Uri.parse(videoUrl).lastPathSegment ?: "Unknown Video"
         titleView.text = URLDecoder.decode(filename, "UTF-8")
 
@@ -131,37 +125,18 @@ class VideoPlayerActivity : AppCompatActivity() {
         val checkboxShowAnnotation = findViewById<CheckBox>(R.id.checkboxShowAnnotation)
 
         if (!imageUrl.isNullOrBlank() && !imageUrl.contains("null")) {
-            Glide.with(this)
-                .load(imageUrl)
-                .placeholder(android.R.drawable.ic_menu_report_image)
-                .into(imageAnnotation)
-
+            Glide.with(this).load(imageUrl).placeholder(android.R.drawable.ic_menu_report_image).into(imageAnnotation)
             checkboxShowAnnotation.visibility = View.VISIBLE
             checkboxShowAnnotation.setOnCheckedChangeListener { _, isChecked ->
                 imageAnnotation.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
-
             imageAnnotation.visibility = View.GONE
         } else {
             checkboxShowAnnotation.visibility = View.GONE
             imageAnnotation.visibility = View.GONE
         }
 
-
-        // shows the updated query of the llama
-        checkboxShowLlamaQuery.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked && llamaUpdatedQuery.isNotBlank() && suggestionMode == "llm") {
-                llamaQueryText.text = llamaUpdatedQuery
-                llamaQueryText.visibility = View.VISIBLE
-            } else {
-                llamaQueryText.visibility = View.GONE
-            }
-        }
-
-
-        // initializes the media controller (play, pause button etc.)
         val mediaController = MediaController(this)
-        mediaController.show(0)
         mediaController.setAnchorView(videoView)
         videoView.setMediaController(mediaController)
         videoView.setVideoURI(Uri.parse(videoUrl))
@@ -169,8 +144,7 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         videoView.setOnPreparedListener { mp ->
             progressBar.visibility = ProgressBar.GONE
-            val seekToMs = (frameTime * 1000).toInt()
-            mp.seekTo(seekToMs)
+            mp.seekTo((frameTime * 1000).toInt())
             mp.start()
         }
 
@@ -186,22 +160,19 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 
 
+
+
     /**
      * Sends a query request to the search api with two separate IDs. Both of them are embedding IDs
      * with the first ID being the one from the embedding of the last video played and the second
      * one being the embedding ID of the current video played.
      */
-    fun fetchDirectionRecommendations(selectedEmbeddingId: Int) {
+    fun fetchDirectionRecommendations() {
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
-        if (currentEmbeddingId == -1) {
-            Log.e("DIRECTION_SEARCH", "Current embedding ID not found in intent.")
-            return
-        }
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
         Log.d("DATATYPE", dataType)
-        val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/$duplicateVideos/?source_id=$currentEmbeddingId&target_id=$selectedEmbeddingId"
+        val url = "http://10.34.64.139:8001/search_by_direction_pair/$dataType/$emotionSpinner/$duplicateVideos/?source_id=$previousEmbeddingId&target_id=$currentEmbeddingId"
         Log.d("DIRECTION_SEARCH", "Fetching from URL: $url")
 
         val requestQueue = Volley.newRequestQueue(this)
@@ -242,7 +213,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                                 frameTime = frameTime,
                                 annotatedImageUrl = annotatedImage,
                                 frameLocation = frameLocation,
-                                embeddingID = embeddingId
+                                embeddingID = embeddingId,
+                                previousEmbeddingID = currentEmbeddingId
                             )
                         )
 
@@ -271,6 +243,12 @@ class VideoPlayerActivity : AppCompatActivity() {
                 }
             }
         )
+        stringRequest.retryPolicy = DefaultRetryPolicy(
+            100000,
+            DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+            DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+        )
+        requestQueue.add(stringRequest)
 
         requestQueue.add(stringRequest)
     }
@@ -287,6 +265,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     ) {
         val emotionSpinner = intent.getStringExtra("emotion") ?: ""
         val dataType = intent.getStringExtra("dataType") ?: ""
+        val currentEmbeddingId = intent.getIntExtra("embedding_id", -1)
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         Log.d("DATATYPE", dataType)
         val url = "http://10.34.64.139:8001/ask_llama/$query/$emotionSpinner/$duplicateVideos"
@@ -309,34 +288,45 @@ class VideoPlayerActivity : AppCompatActivity() {
                         val embeddingId = obj.getInt("embedding_id")
                         llamaUpdatedQuery = obj.getString("llama_updated_query")
                         Log.d("LLAMA", "new llama query is $llamaUpdatedQuery")
-
-                        var annotatedImagePath = obj.optString("annotated_image", null)
-                        if (annotatedImagePath.isNullOrBlank() || annotatedImagePath.contains("null")) {
-                            annotatedImagePath = null
+                        llamaQueryText.text = llamaUpdatedQuery.take(50) + "…"
+                        runOnUiThread {
+                            if (llamaUpdatedQuery.isNotBlank()) {
+                                buttonShowLlamaQuery.visibility = View.VISIBLE
+                                buttonShowLlamaQuery.setOnClickListener {
+                                    val intent = Intent(this, LlamaQueryActivity::class.java)
+                                    intent.putExtra("llama_query", llamaUpdatedQuery)
+                                    startActivity(intent)
+                                }
+                            } else {
+                                buttonShowLlamaQuery.visibility = View.GONE
+                            }
                         }
-                        val annotatedImage = annotatedImagePath?.let { "$baseUrl/$it" }
+
+
+                        var annotatedImage = obj.optString("annotated_image", null)?.let { "$baseUrl/$it" }
+                        Log.d("Suggestions", "annotated image is $annotatedImage }}")
+                        if (annotatedImage.isNullOrBlank() || annotatedImage.contains("null")) {
+                            annotatedImage = null
+                        }
+                        var frameLocation = obj.optString("frame_location", null)?.let { "$baseUrl/$it" }
+                        Log.d("Suggestions", "annotated image is $frameLocation }}")
+                        if (frameLocation.isNullOrBlank() || frameLocation.contains("null")) {
+                            annotatedImage = null
+                        }
 
                         llmResults.add(
                             VideoResult(
                                 videoUrl = videoPath,
                                 frameTime = frameTime,
                                 annotatedImageUrl = annotatedImage,
-                                embeddingID = embeddingId
+                                frameLocation = frameLocation,
+                                embeddingID = embeddingId,
+                                previousEmbeddingID = currentEmbeddingId
                             )
                         )
                     }
 
                     val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-                    if (suggestionMode == "llm" && llamaUpdatedQuery.isNotBlank()) {
-                        runOnUiThread {
-                            checkboxShowLlamaQuery.visibility = View.VISIBLE
-                        }
-                    } else {
-                        runOnUiThread {
-                            checkboxShowLlamaQuery.visibility = View.GONE
-                            llamaQueryText.visibility = View.GONE
-                        }
-                    }
 
                     suggestionsAdapter = ResultsAdapter(llmResults, this, query, emotionSpinner, dataType, suggestionMode, duplicateVideos)
                     suggestionsRecyclerView.adapter = suggestionsAdapter
@@ -383,7 +373,7 @@ class VideoPlayerActivity : AppCompatActivity() {
      */
     fun sendPostRequestSentiment(context: android.content.Context, base64Image: String) {
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
-        val url = "http://10.34.64.139:8003/upload_base64" // adress of the sentiment api
+        val url = "http://10.34.64.139:8003/upload_base64" // address of the sentiment api
         val jsonBody = JSONObject()
         jsonBody.put("image", base64Image)
         val requestBody = jsonBody.toString()
@@ -418,7 +408,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                             Log.d("SUGGESTION", "suggestionMode is $suggestionMode")
 
                             if (suggestionMode == "nearest") {
-                                fetchDirectionRecommendations(currentEmbeddingId)
+                                fetchDirectionRecommendations()
                             }
                             if (suggestionMode == "llm") {
                                 sendQueryRequestLlama(this, query)
@@ -467,43 +457,32 @@ class VideoPlayerActivity : AppCompatActivity() {
     }
 
 
-    private var lastSentTime = 0L // stores the last time image was sent
-
-
     /**
      * Camera stream that is always running and captures an image of the face / frontcamera every
      * second.
      */
-    private fun startCameraStream() {
+    private fun setupCameraStream() {
+        if (!allPermissionsGranted()) {
+            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+            return
+        }
+
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-
         cameraProviderFuture.addListener({
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build()
+            val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build()
 
-            val preview = Preview.Builder()
-                .build()
-            val cameraSelector = CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
-                .build()
-
-            val imageAnalyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also { analyzer ->
-                    analyzer.setAnalyzer(cameraExecutor) { image ->
-                        val currentTime = System.currentTimeMillis()
-
-                        if (currentTime - lastSentTime >= 1000) {
-                            Log.d("CameraStream", "Sending image...")
-
-                            // val bitmap = imageProxyToBitmap(image)
-                            val bitmap = imageProxyToBase64(image)
-                            var response = sendPostRequestSentiment(this, bitmap)
-                            lastSentTime = currentTime
-                        }
-                        image.close()
+            val imageAnalyzer = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build().also {
+                it.setAnalyzer(cameraExecutor) { image ->
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastSentTime >= 1000) {
+                        sendPostRequestSentiment(this, imageProxyToBase64(image))
+                        lastSentTime = currentTime
                     }
+                    image.close()
                 }
+            }
 
             try {
                 cameraProvider.unbindAll()
@@ -557,13 +536,11 @@ class VideoPlayerActivity : AppCompatActivity() {
      */
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                startCameraStream()
-            } else {
-                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show()
-                finish()
-            }
+        if (requestCode == REQUEST_CODE_PERMISSIONS && allPermissionsGranted()) {
+            setupCameraStream()
+        } else {
+            Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show()
+            finish()
         }
     }
 
