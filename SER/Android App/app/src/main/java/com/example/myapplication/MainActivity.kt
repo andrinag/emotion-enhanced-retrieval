@@ -113,7 +113,6 @@ class MainActivity : AppCompatActivity() {
         editTextQuery = findViewById(R.id.editTextQuery)
         settingsButton = findViewById(R.id.settingsButton)
         helpButton = findViewById(R.id.helpButton)
-        refreshButton = findViewById(R.id.refreshButton)
         buttonSearch = findViewById(R.id.buttonSearch)
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
@@ -125,37 +124,7 @@ class MainActivity : AppCompatActivity() {
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         val darkMode = sharedPref.getBoolean("darkMode", false)
         duplicateVideos = sharedPref.getBoolean("duplicateVideos", false)
-        val cheerupMode = sharedPref.getBoolean("cheerupMode", true)
-        val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
-        val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
-        Log.d(
-            "CHEERUP",
-            "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated"
-        )
-
-
-        val jokeCardView = findViewById<CardView>(R.id.jokeCardView)
-        if (cheerupMode && (jokesActivated || complimentsActivated)) {
-            jokeCardView.visibility = View.VISIBLE
-
-            if (jokesActivated && complimentsActivated) {
-                val random = Random().nextBoolean()
-                if (random) {
-                    generateNewJokeOrCompliment("joke")
-                } else {
-                    generateNewJokeOrCompliment("compliment")
-                }
-            } else if (jokesActivated) {
-                generateNewJokeOrCompliment("joke")
-            } else if (complimentsActivated) {
-                generateNewJokeOrCompliment("compliment")
-            }
-        } else {
-            jokeCardView.visibility = View.GONE
-        }
-
-
         val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
 
         if (darkMode && currentMode != Configuration.UI_MODE_NIGHT_YES) {
@@ -164,64 +133,9 @@ class MainActivity : AppCompatActivity() {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         }
 
-
-        val refreshButton = findViewById<MaterialButton>(R.id.refreshButton)
-        refreshButton.setOnClickListener {
-            if (!cheerupMode) return@setOnClickListener  // Don't refresh if cheerupMode is off
-
-            val random = Random()
-            when {
-                jokesActivated && complimentsActivated -> {
-                    val showJoke = random.nextBoolean()
-                    if (showJoke) {
-                        generateNewJokeOrCompliment("joke")
-                    } else {
-                        generateNewJokeOrCompliment("compliment")
-                    }
-                }
-
-                jokesActivated -> generateNewJokeOrCompliment("joke")
-                complimentsActivated -> generateNewJokeOrCompliment("compliment")
-            }
-        }
-        startCameraStream()
-
     }
 
 
-    private fun generateNewJokeOrCompliment(type: String) {
-        val url = "http://10.34.64.139:8004/$type"
-        val requestQueue = Volley.newRequestQueue(this)
-        var textToShow = ""
-
-        val stringRequest = StringRequest(
-            Request.Method.GET, url,
-            { response ->
-                try {
-                    val jsonResponse = JSONObject(response)
-                    if (type == "joke") {
-                        textToShow = jsonResponse.getString("joke")
-                    } else {
-                        textToShow = jsonResponse.getString("compliment")
-                    }
-                    showJokeOrCompliment(textToShow)
-                } catch (e: Exception) {
-                    Log.e("JOKE", "Error parsing joke: ${e.message}")
-                }
-            },
-            { error ->
-                Log.e("JOKE", "Error fetching joke: ${error.message}")
-            })
-
-        requestQueue.add(stringRequest)
-    }
-
-
-    private fun showJokeOrCompliment(text: String) {
-        runOnUiThread {
-            findViewById<TextView>(R.id.jokeTextView).text = text
-        }
-    }
 
 
     /**

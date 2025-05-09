@@ -392,7 +392,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                         negativeSentimentCounter++
                         Log.d("LLAMA", "Negative sentiment detected. Count: $negativeSentimentCounter")
 
-                        if (negativeSentimentCounter >= 3 && !suggestionsAlreadyTriggered) {
+                        if (negativeSentimentCounter >= 5 && !suggestionsAlreadyTriggered) {
                             suggestionsAlreadyTriggered = true
                             expectingAnswerLlama = true
 
