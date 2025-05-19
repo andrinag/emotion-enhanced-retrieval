@@ -1,10 +1,9 @@
 # Emotion-Enhanced Multimedia Retrieval Engine
 
-This repository contains the code for the bachelorthesis **Enhancing Multimedia Retrieval with Emotion-Aware Augmented Reality Interfaces**. It includes:
+This repository contains the code for the bachelor's thesis **Enhancing Multimedia Retrieval with Emotion-Aware Augmented Reality Interfaces**. It includes:
 
 - A retrieval engine that supports emotion and sentiment-aware search
 - An Android application used as the user interface
-- A sentiment API that processes user expressions and queries in a sentiment and emotion enhanced manner
 
 ---
 
@@ -21,7 +20,7 @@ This repository contains the code for the bachelorthesis **Enhancing Multimedia 
 
 ## Developer Setup
 
-### Backend
+### Data Insertion
 
 1. Ensure **Python 3.10 or higher** is installed.
 2. Install the required Python packages:
@@ -29,44 +28,50 @@ This repository contains the code for the bachelorthesis **Enhancing Multimedia 
    pip install -r Engine/requirements.txt
    ```
 3. A system with a GPU is recommended, as multiple machine learning models are used.
+4. Create a database called multimedia_db (or rename it in the code) and create the schema according to DB_schema.sql.
 
 #### Video Insertion
 
-1. Start the backend engine (default port is `8000`):
+1. Start the backend insertion engine (default port is `8000`):
    ```bash
-   python3 engine.py
+   python3 emotion_enhanced_engine.py
    ```
 2. Run the script to insert videos into the database:
    ```bash
-   python3 upload_videos.py
+   python3 upload_scripts/upload_videos.py
    ```
 
-This will:
+This process will insert all the videos and extract semantical and emotional features. Be aware that this process might take a long time. 
 
-- Generate embeddings for video frames
-- Analyze sentiment from facial expressions, OCR text, and audio (ASR)
-- Store all extracted data and metadata in the database
+4. After the process is complete, run the OCR insertion script: 
+   ```bash
+   python3 insert_OCR_data.py
+   ```
 
-Depending on the number of videos, this process can take some time.
+5. Create the index on the embeddings:
+   ```bash
+   python3 create_index_embedding.py
+   ```
+When all of the videos and OCR data are inserted, please start the rest of the backend processes, such that the frontend can run as intended. 
 
-#### API Usage
+### Backend
 
-Once videos are inserted, start the retrieval API:
-
+1. Start the search API:
 ```bash
-python api.py
-```
-
-This API handles search requests that include query text and optional emotion/sentiment constraints and returns multimedia content matching the request.
-
----
+   python3 search_api.py
+   ```
+2. Start the sentiment API :
+```bash
+   python3 Sentiment_Detection/sentiment_api.py
+   ```
+3. Start the tinyLlama model on the server. This works best when run with Ollama. 
 
 ## Frontend (Android App)
 
 Same steps as under **User Setup**. Make sure to:
 
 - Enable USB Debugging
-- Connect to GlobalProtect VPN if required
+- Connect to the GlobalProtect VPN for the university on the mobile device. 
 
 Run the project from Android Studio, and the app should deploy to your connected device.
 
@@ -81,6 +86,7 @@ This project uses the following models:
 - **Face Recognition**: [DeepFace](https://github.com/serengil/deepface)
 - **Speech-to-Text**: [Whisper](https://github.com/openai/whisper)
 - **Encoding Images to Embeddings**: [CLIP](https://github.com/openai/CLIP)
+- **TinyLlama**: [TinyLlama](https://ollama.com/library/tinyllama)
 
 
 ## Other frameworks 
