@@ -107,55 +107,6 @@ def check_file_exists(filename):
         release_db_connection(conn)
 
 
-###################### UPLOADING IMAGES ##############################
-
-def insert_image_metadata(filename):
-    """
-    inserts the metadata of the image into the multimedia_object table
-    :param filename: name of the image file
-    :return: object_id of the just inserted image tuple
-    """
-    try:
-        cursor = get_db_connection().cursor()
-        cursor.execute("INSERT INTO multimedia_objects (location) VALUES (%s) RETURNING object_id;",
-                       (filename,))
-        object_id = cursor.fetchone()[0]
-        get_db_connection().commit()
-        return object_id
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/upload_image/")
-async def upload_files(files: list[UploadFile] = File(...)):
-    """
-    uploads the local images form a list into the DB with their embeddings
-    :param files: list of image files to upload
-    :return: status of request
-    """
-    try:
-        cursor = get_db_connection().cursor()
-        for file in files:
-            file_content = file.file.read()
-            file.file.seek(0)
-            embedding = get_embedding(input_image=file_content)
-            embedding = normalize_embedding(embedding)
-
-            # first insert the image and its meatdata (file, id etc.)
-            object_id = insert_image_metadata(file.filename)
-            cursor.execute(
-                "INSERT INTO multimedia_embeddings (object_id, frame_time, embedding) VALUES (%s, NULL, %s);",
-                (object_id, embedding.tolist())
-            )
-
-        get_db_connection().commit()
-        return {"message": f"Uploaded {len(files)} images successfully"}
-
-    except Exception as e:
-        get_db_connection().rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        cursor.close()
 
 
 ######################## UPLOADING VIDEO ################################
@@ -422,6 +373,33 @@ async def generate_low_dim_embeddings():
         print("Error Traceback:", error_message)
         if conn:
             conn.rollback()
+        return {"error": str(e), "traceback": error_message}
+
+
+@app.get("/hnsw_index")
+async def create_index_hnsw():
+    """
+    Create an hnsw index on the embeddings (vectors) column of the multimedia_embeddings table.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_embedding_hnsw 
+            ON multimedia_embeddings 
+            USING hnsw (embedding vector_l2_ops) 
+            WITH (m = 16, ef_construction = 64);
+        """)
+
+        conn.commit()
+        cursor.close()
+
+        return {"message": "HNSW index created successfully"}
+
+    except Exception as e:
+        error_message = traceback.format_exc()
+        print("Error Traceback:", error_message)
         return {"error": str(e), "traceback": error_message}
 
 

@@ -9,16 +9,22 @@ import whisper
 from PIL import Image
 from moviepy import VideoFileClip
 
+"""
+Sentiment Detector Class can be created as an object. The classification for emotions during the 
+data insertion process is handled through that object. 
+"""
 class SentimentDetector:
     def __init__(self):
         # models
-        #self.pipe = pipeline("image-classification", model="dima806/facial_emotions_image_detection")
         self.pipe2 = pipeline("image-classification", model="trpakov/vit-face-expression")
         self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
         self.whisper = whisper.load_model("base")
 
     @staticmethod
     def convert_mp4_to_mp3(mp4_file, mp3_file, start_time=0, end_time=1000):
+        """
+        Converts a video file into an audio file. Start and entime are given.
+        """
         if not os.path.exists(mp4_file):
             raise FileNotFoundError(f"Error: The file {mp4_file} was not found.")
 
@@ -34,6 +40,9 @@ class SentimentDetector:
 
     @staticmethod
     def get_text_from_mp3(audio_file):
+        """
+        Performs the speech to text conversion.
+        """
         model = whisper.load_model("tiny")  # "tiny" or "small" to avoid memory issues, change on node
         result = model.transcribe(audio_file)
 
@@ -43,23 +52,23 @@ class SentimentDetector:
             return None
 
     def get_emotion_from_text(self, text:str):
+        """Return emotion classification for texts. """
         emotion = self.emotion_text_classifier(text) # output: [{'label': 'joy', 'score': 0.9887555241584778}]
         return emotion
 
-    """
-    async def get_emotion_for_image(self, image):
-        predictions = self.pipe(image)
-        top_emotion = predictions[0]["label"]
-        confidence = predictions[0]["score"]
-        return top_emotion, confidence"""
 
-    def get_emotion_for_image2(self, image):
+    def get_emotion_for_image(self, image):
+        """Facial emotion classification that returns only the top emotion and corresponding confidence. """
         predictions = self.pipe2(image)
         top_emotion = predictions[0]["label"]
         confidence = predictions[0]["score"]
         return top_emotion, confidence
 
     def detect_faces_and_get_emotion_with_plots(self, file_path):
+        """
+        Detects all the faces in the images with DeepFace, gets their classified emotion and draws green squares around
+        the faces with emotion and confidence.
+        """
         if not os.path.exists(file_path):
             print("File path doesn't exist")
             return "no_face", 0.0, "neutral", None
@@ -99,7 +108,7 @@ class SentimentDetector:
             face = img_rgb[y1:y2, x1:x2]
             face_pil = Image.fromarray(face)
 
-            emotion, confidence = self.get_emotion_for_image2(face_pil)
+            emotion, confidence = self.get_emotion_for_image(face_pil)
             emotion_scores[emotion] += confidence
             total_confidence += confidence
             total_faces += 1
@@ -133,6 +142,9 @@ class SentimentDetector:
 
     @staticmethod
     def get_sentiment_from_emotion(emotion:str):
+        """
+        Mapping of the emotions to sentiment.
+        """
         emotion_to_sentiment = {
             "happy": "positive",
             "sad": "negative",

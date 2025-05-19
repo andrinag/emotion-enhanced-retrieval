@@ -5,6 +5,9 @@ import android.os.Bundle
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 
+/***
+ * Help Activity where user can find information about the app.
+ */
 class HelpActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -14,6 +17,9 @@ class HelpActivity : AppCompatActivity() {
 
     }
 
+    /**
+     * Allows to return through the back arrow to the MainActivity
+     */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {

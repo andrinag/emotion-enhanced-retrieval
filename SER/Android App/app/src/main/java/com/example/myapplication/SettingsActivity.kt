@@ -4,10 +4,14 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 
+
+/**
+ * Activity for the settings where user can handle their preferences.
+ * Is activated whenever a user clicks on the settings button in the MainActivity.
+ */
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var switchDuplicateVideos: Switch
@@ -40,6 +44,9 @@ class SettingsActivity : AppCompatActivity() {
         radioNone = findViewById(R.id.radioNone)
     }
 
+    /**
+     * Loads the preferences of the user that are saved in a sharedPreferences datatype.
+     */
     private fun loadPreferences() {
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         darkMode = sharedPref.getBoolean("darkMode", false)
@@ -47,6 +54,9 @@ class SettingsActivity : AppCompatActivity() {
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
     }
 
+    /**
+     * Sets up all of the buttons and sets them to the current preferences of the user.
+     */
     private fun setupUI() {
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
 

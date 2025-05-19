@@ -17,15 +17,21 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
+
 def insert_ocr(json_path):
+    """
+    Inserts the OCR detections into the database with annotated images.
+    """
     tsv_base_path = Path("/home/ubuntu/V3C1_msb/msb")
-    # tsv_base_path = Path("./V3C1_msb/msb") local
     SD = SentimentDetector()
     tsv_cache = {}
     object_id_cache = {}
     embedding_id_cache = {}
 
     def get_frame_from_tsv(video_id, row_index):
+        """
+        Gets the correct frame per video id.
+        """
         if video_id not in tsv_cache:
             tsv_path = tsv_base_path / f"{video_id}.tsv"
             if not tsv_path.exists():
@@ -118,10 +124,12 @@ def insert_ocr(json_path):
                 x, y, w, h
             ))
             conn.commit()
-            #print(f"Inserted embedding for {embedding_id} - done.")
 
 
 def draw_all_detections_on_image(image_path, detections):
+    """
+    Draws all the detection onto the image with a green square and the text that was detected.
+    """
     try:
         image = cv2.imread(image_path)
         if image is None:
@@ -154,7 +162,6 @@ def draw_all_detections_on_image(image_path, detections):
         filename = os.path.basename(image_path)
         out_path = os.path.join(output_dir, filename)
         cv2.imwrite(out_path, image)
-        # print(out_path)
         return out_path
     except Exception as e:
         print(f"Failed drawing on {image_path}: {e}")
@@ -162,6 +169,9 @@ def draw_all_detections_on_image(image_path, detections):
 
 
 def get_ocr_list_from_folder(folder_path):
+    """
+    Returns a list of files that contain the given OCR detections, that should be saved in the DB .
+    """
     return [
         os.path.abspath(os.path.join(folder_path, file))
         for file in os.listdir(folder_path)
@@ -169,6 +179,9 @@ def get_ocr_list_from_folder(folder_path):
     ]
 
 def get_location_for_frame(embedding_id):
+    """
+    Returns the location of the video for the given embedding ID.
+    """
     try:
         cursor.execute("SELECT frame_location FROM multimedia_embeddings WHERE id = %s;", (embedding_id,))
         result = cursor.fetchone()

@@ -30,17 +30,14 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
-import com.google.android.material.button.MaterialButton
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
-import java.util.Random
 
 class MainActivity : AppCompatActivity() {
 
@@ -121,6 +118,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        startCameraStream()
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         val darkMode = sharedPref.getBoolean("darkMode", false)
         duplicateVideos = sharedPref.getBoolean("duplicateVideos", false)

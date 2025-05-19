@@ -1,12 +1,11 @@
 from PIL.Image import Image
 from fastapi import FastAPI
 import uvicorn
-from transformers import pipeline, AutoImageProcessor, AutoModelForImageClassification
+from transformers import pipeline
 from pydantic import BaseModel
 import base64
 from PIL import Image
 import io
-import cv2
 
 
 
@@ -21,6 +20,10 @@ pipe_sentiment_face = pipeline("image-classification", model="trpakov/vit-face-e
 
 
 async def get_sentiment_for_image(image_path: str):
+    """
+    Uses the trpakov model. Takes an image_path to classify as input and returns the top emotion and sentiment.
+    Confidence is not needed here, as this is used in the real time emotion detection of the app.
+    """
     predictions = pipe_sentiment_face(image_path)
     top_emotion = predictions[0]["label"]
     confidence = predictions[0]["score"]
@@ -48,6 +51,9 @@ async def get_sentiment_for_image(image_path: str):
 
 @app.post("/upload_base64")
 async def upload_base64_image(data: ImageRequest):
+    """
+    Decodes base64 image that app sent and calls classification method. Sends back sentiment and emotion.
+    """
     try:
         image_data = base64.b64decode(data.image)
         image = Image.open(io.BytesIO(image_data))
@@ -61,6 +67,10 @@ async def upload_base64_image(data: ImageRequest):
 
 
 ######################## SENTIMENT OF TEXT QUERY ###################################
+"""
+This part of the implementation is currently not used, as the queries have a filter for sentiment in the app. 
+Code is left, in case in the future someones decides, that handling emotions in queries implicitly is better :) 
+"""
 
 
 class QueryRequest(BaseModel):
