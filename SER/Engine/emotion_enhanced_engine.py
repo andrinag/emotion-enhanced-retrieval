@@ -265,7 +265,7 @@ def process_frame(frame_info, object_id, audio_file):
                 # Always insert something
                 cursor.execute("""
                     INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment, emotion_acoustic)
-                    VALUES (%s, %s, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s);
                 """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category, emotion_acoustic))
                 conn.commit()
             else:

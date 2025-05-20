@@ -53,7 +53,7 @@ class SentimentDetector:
             predictions = torch.nn.functional.softmax(outputs.logits.mean(dim=1),
                                                       dim=-1)  # Average over sequence length
             predicted_label = torch.argmax(predictions, dim=-1)
-            emotion = self.model.config.id2label[predicted_label.item()]
+            emotion = self.model.config.id2label[predicted_label.item(), "unknown"]
         return emotion
 
     @staticmethod

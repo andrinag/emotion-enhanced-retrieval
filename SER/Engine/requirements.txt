@@ -17,3 +17,4 @@ openai-whisper
 moviepy
 python-multipart
 python-multipart
+librosa
