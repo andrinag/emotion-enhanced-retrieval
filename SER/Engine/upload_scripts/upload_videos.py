@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     url = "http://127.0.0.1:8000/upload_videos/"
 
-    for video_path in video_list:
+    for video_path in video_list[:10]:
         with open(video_path, "rb") as video_file:
             response = requests.post(url, files=[("files", video_file)])
             print(response)

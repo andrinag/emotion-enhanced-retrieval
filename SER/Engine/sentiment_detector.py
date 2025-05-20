@@ -8,6 +8,9 @@ from collections import defaultdict
 import whisper
 from PIL import Image
 from moviepy import VideoFileClip
+from transformers import *
+import librosa
+import torch
 
 """
 Sentiment Detector Class can be created as an object. The classification for emotions during the 
@@ -19,6 +22,8 @@ class SentimentDetector:
         self.pipe2 = pipeline("image-classification", model="trpakov/vit-face-expression")
         self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
         self.whisper = whisper.load_model("base")
+        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("r-f/wav2vec-english-speech-emotion-recognition")
+        self.model = Wav2Vec2ForCTC.from_pretrained("r-f/wav2vec-english-speech-emotion-recognition")
 
     @staticmethod
     def convert_mp4_to_mp3(mp4_file, mp3_file, start_time=0, end_time=1000):
@@ -37,6 +42,19 @@ class SentimentDetector:
         audio.write_audiofile(mp3_file)
         audio.close()
         video.close()
+
+
+    def predict_emotion_speech_acoustic(self, audio_path):
+        audio, rate = librosa.load(audio_path, sr=16000)
+        inputs = self.feature_extractor(audio, sampling_rate=rate, return_tensors="pt", padding=True)
+
+        with torch.no_grad():
+            outputs = self.model(inputs.input_values)
+            predictions = torch.nn.functional.softmax(outputs.logits.mean(dim=1),
+                                                      dim=-1)  # Average over sequence length
+            predicted_label = torch.argmax(predictions, dim=-1)
+            emotion = self.model.config.id2label[predicted_label.item()]
+        return emotion
 
     @staticmethod
     def get_text_from_mp3(audio_file):

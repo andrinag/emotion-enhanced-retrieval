@@ -41,7 +41,7 @@ app = FastAPI()
 
 db_pool = psycopg2.pool.SimpleConnectionPool(
     1, 20,  # Min and max connections
-    dbname="multimedia_db",
+    dbname="test_multimedia_db",
     user="test",
     password="123",
     host="localhost",
@@ -244,6 +244,7 @@ def process_frame(frame_info, object_id, audio_file):
         # -------- AUDIO ANALYSIS --------
         try:
             if audio_file and os.path.exists(audio_file):
+                emotion_acoustic = SD.predict_emotion_speech_acoustic(audio_file)
                 audio_text = SD.get_text_from_mp3(audio_file)
                 if audio_text:
                     sentiment_result = SD.get_emotion_from_text(audio_text)
@@ -263,9 +264,9 @@ def process_frame(frame_info, object_id, audio_file):
 
                 # Always insert something
                 cursor.execute("""
-                    INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment)
+                    INSERT INTO ASR (embedding_id, text, emotion, confidence, sentiment, emotion_acoustic)
                     VALUES (%s, %s, %s, %s, %s);
-                """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category))
+                """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category, emotion_acoustic))
                 conn.commit()
             else:
                 print(f"[WARNING] Audio file not found or not provided: {audio_file}")

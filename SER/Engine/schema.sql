@@ -43,8 +43,9 @@ CREATE TABLE ASR (
 id SERIAL PRIMARY KEY,
 embedding_id INTEGER,
 text VARCHAR(50000),
-emotion VARCHAR(30),
+emotion_linguistic VARCHAR(30),
 confidence FLOAT,
 sentiment VARCHAR(30),
+emotion_acoustic VARCHAR(30),
 FOREIGN KEY (embedding_id) REFERENCES multimedia_embeddings(id)
 );
