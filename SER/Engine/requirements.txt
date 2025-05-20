@@ -18,3 +18,4 @@ moviepy
 python-multipart
 python-multipart
 librosa
+pydub

@@ -11,6 +11,7 @@ from moviepy import VideoFileClip
 from transformers import *
 import librosa
 import torch
+from pydub import AudioSegment
 
 """
 Sentiment Detector Class can be created as an object. The classification for emotions during the 
@@ -45,16 +46,25 @@ class SentimentDetector:
 
 
     def predict_emotion_speech_acoustic(self, audio_path):
-        audio, rate = librosa.load(audio_path, sr=16000)
-        inputs = self.feature_extractor(audio, sampling_rate=rate, return_tensors="pt", padding=True)
+        try:
+            sound = AudioSegment.from_mp3(audio_path)
+            sound.export("audio.wav", format="wav")
+        except Exception as e:
+            print(f"Could not convert mp3 to wav: {e}")
 
-        with torch.no_grad():
-            outputs = self.model(inputs.input_values)
-            predictions = torch.nn.functional.softmax(outputs.logits.mean(dim=1),
-                                                      dim=-1)  # Average over sequence length
-            predicted_label = torch.argmax(predictions, dim=-1)
-            emotion = self.model.config.id2label[predicted_label.item(), "unknown"]
-        return emotion
+        try:
+            audio, rate = librosa.load("audio.wav", sr=16000)
+            inputs = self.feature_extractor(audio, sampling_rate=rate, return_tensors="pt", padding=True)
+
+            with torch.no_grad():
+                outputs = self.model(inputs.input_values)
+                predictions = torch.nn.functional.softmax(outputs.logits.mean(dim=1),
+                                                          dim=-1)  # Average over sequence length
+                predicted_label = torch.argmax(predictions, dim=-1)
+                emotion = self.model.config.id2label[predicted_label.item(), "unknown"]
+            return emotion
+        except Exception as e:
+            print("Could not get emotion from wav")
 
     @staticmethod
     def get_text_from_mp3(audio_file):
