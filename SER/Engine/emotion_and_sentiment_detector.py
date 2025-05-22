@@ -3,12 +3,11 @@ import cv2
 import asyncio
 import matplotlib.pyplot as plt
 from deepface import DeepFace
-from transformers import pipeline
+from transformers import pipeline, Wav2Vec2FeatureExtractor, Wav2Vec2ForCTC
 from collections import defaultdict
 import whisper
 from PIL import Image
 from moviepy import VideoFileClip
-from transformers import *
 import librosa
 import torch
 from pydub import AudioSegment
@@ -18,7 +17,7 @@ Sentiment Detector Class can be created as an object. The classification for emo
 data insertion process is handled through that object. 
 """
 class SentimentDetector:
-    def __init__(self):
+    def __init__(self) -> None:
         # models
         self.pipe2 = pipeline("image-classification", model="trpakov/vit-face-expression")
         self.emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
@@ -46,6 +45,7 @@ class SentimentDetector:
 
 
     def predict_emotion_speech_acoustic(self, audio_path):
+        """ Code is from HuggingFace (given with the model) """
         try:
             sound = AudioSegment.from_mp3(audio_path)
             sound.export("audio.wav", format="wav")
@@ -69,7 +69,7 @@ class SentimentDetector:
     @staticmethod
     def get_text_from_mp3(audio_file):
         """
-        Performs the speech to text conversion.
+        ASR with Whisper.
         """
         model = whisper.load_model("tiny")  # "tiny" or "small" to avoid memory issues, change on node
         result = model.transcribe(audio_file)
@@ -118,6 +118,9 @@ class SentimentDetector:
         try:
             faces = DeepFace.extract_faces(file_path, detector_backend="retinaface", enforce_detection=True)
         except Exception as e:
+            # IMPORTANT: this fails everytime no face is detected. enforce detection needs to be set to True, because
+            # if false and no face is detected, the whole frame is annonated as a frame and it draws an ugly green
+            # square over the whole image.
             print(f"[ERROR] DeepFace failed on {file_path}: {e}")
             return "no_face", 0.0, "neutral", None
 
@@ -142,17 +145,15 @@ class SentimentDetector:
             total_faces += 1
 
             cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(img, f"{emotion} ({confidence:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
-                        2)
+            cv2.putText(img, f"{emotion} ({confidence:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),2)
 
-        # Save the annotated image
         try:
             annotated_path = os.path.join(faces_dir, f"annotated_{os.path.basename(file_path)}")
             plt.figure(figsize=(10, 5))
             plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             plt.axis("off")
             plt.savefig(annotated_path)
-            plt.close()  # Close figure to free memory
+            plt.close()
         except Exception as e:
             print(f"[WARNING] Failed to save or render annotated image for {file_path}: {e}")
             annotated_path = None
@@ -187,15 +188,11 @@ class SentimentDetector:
         }
         return emotion_to_sentiment.get(emotion.lower(), "neutral")
 
-"""
-async def main():
+if __name__ == "__main__":
     SD = SentimentDetector()
 
-    # SD.convert_mp4_to_mp3("./videos/00002.mp4", "./mp3/00002.mp3")
-    text = await SD.get_text_from_mp3("./mp3/00002.mp3")
-    print(text)
-    sentiment = await SD.get_emotion_from_text(text)
-    print(sentiment)
+    print(SD.predict_emotion_speech_acoustic("./mp3/00001_msb_0.mp3"))
+"""
 SD = SentimentDetector()
 results1 = SD.detect_faces_and_get_emotion_with_plots("./frames/00001.mp4_frame_6307.jpg")
 print("Image 1 Average Sentiment:", results1)

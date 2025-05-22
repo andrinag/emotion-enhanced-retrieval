@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 import numpy as np
 from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import run_in_threadpool
+from sklearn.utils import deprecated
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -156,8 +157,13 @@ async def search_image_to_image(file: UploadFile = File(...)):
 
     finally:
         cursor.close()
-################## TEXT TO IMAGE SEARCH #########################
+
+
+#######################################################
+#                 TEXT TO IMAGE SEARCH                #
+#######################################################
 @app.get("/search/{query}")
+@deprecated # function no longer in use in current implementation. Still useful.
 async def search_images(request: Request, query: str):
     """
     Search for videos related to the query and return the video path.
@@ -209,27 +215,23 @@ async def search_images(request: Request, query: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-################## TEXT TO IMAGE SEARCH WITH SENTIMENT #########################
+##############################################################################
+#                 TEXT TO IMAGE SEARCH WITH EMOTION-ENHACNEMNT               #
+##############################################################################
 @app.get("/search_combined_face/{query}/{emotion}/{allow_duplicates}")
 async def search_combined_face(query: str, emotion: str, allow_duplicates: bool):
     """
-    Hybrid search that:
-    1. Finds top-200 embeddings most similar to the query
-    2. Joins with all Face entries
-    3. Computes a combined score using similarity and emotion confidence
-    4. Returns top results where emotion matches the provided emotion
+    Emotion enhanced search for the face modality. Collects the top 1000 most matching embeddings.
+    Then filter for emotions. Emotions are only considered if matching, else skip.
     """
     cursor = conn.cursor()
 
     try:
         emotion_filter = emotion.lower()
         query_filter = query.lower()
-
-        # 1. Generate and normalize embedding from the query
         query_embedding = get_embedding(input_text=query_filter)
         query_embedding = normalize_embedding(query_embedding)
 
-        # 2. Execute the combined SQL query
         cursor.execute("""
             WITH top_embeddings AS (
                 SELECT 
@@ -332,12 +334,9 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
 @app.get("/search_combined_asr/{query}/{emotion}/{allow_duplicates}")
 async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
     """
-    Hybrid search using ASR (speech emotion):
-    1. Finds top-200 embeddings most similar to the query
-    2. Joins with ASR table
-    3. Computes a combined score using text similarity and ASR emotion confidence
-    4. Returns results where emotion matches the provided sentiment
-    """
+        Emotion enhanced search for the ASR modality. Collects the top 1000 most matching embeddings.
+        Then filter for emotions. Emotions are only considered if matching, else skip.
+        """
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
     emotion = emotion_mapping(emotion)
@@ -454,11 +453,8 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
 @app.get("/search_combined_ocr/{query}/{emotion}/{allow_duplicates}")
 async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
     """
-    Hybrid search using OCR data:
-    1. Finds top-N embeddings similar to the query
-    2. Joins with OCR table
-    3. Computes a combined score using similarity and sentiment confidence
-    4. Filters by OCR emotion match
+    Emotion enhanced search for the OCR modality. Collects the top 1000 most matching embeddings.
+    Then filter for emotions. Emotions are only considered if matching, else skip.
     """
     cursor = conn.cursor()
     emotion = emotion_mapping(emotion)
@@ -591,12 +587,9 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
 @app.get("/search_combined_all/{query}/{emotion}/{allow_duplicates}")
 async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
     """
-    Multimodal sentiment-aware search:
-    - Retrieves top 400 by embedding similarity.
-    - Only includes results where at least one modality matches the target sentiment.
-    - Scores each using:
-        0.5 * similarity + 0.5 * (2/8 * OCR_conf + 3/8 * ASR_conf + 3/8 * Face_conf)
-    - Returns top 10 by score.
+    Emotion enhanced search for the all 3 modalities modality. Collects the top 1000 most matching embeddings.
+    Then filter for emotions and wieghts it with given formula. In most cases not all three modalities can
+    have 1 as score.
     """
     cursor = conn.cursor()
     emotion2 = emotion_mapping(emotion)
@@ -724,13 +717,13 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
 
 @app.get("/")
 async def read_root(request: Request):
+    """ For testing purposes there exists an index.html file. Not used in app. """
     return templates.TemplateResponse("index.html", context={"request": request})
 
 @app.get("/video")
 async def video_endpoint(path: str, start_time: float = 0.0, range: str = Header(None)):
     """
-    Allows a webbrowser to play the video which is stored locally
-    the fallback directory is the path to the V3C2 directory, because I made a mistake in my DB schema
+    Allows video streaming over http. Starts at given time.
     """
     file_path = Path(path)
     #fallback_directory = "./videos"
@@ -783,7 +776,9 @@ async def video_endpoint(path: str, start_time: float = 0.0, range: str = Header
 
     raise HTTPException(status_code=404, detail="Video not found")
 
+
 def emotion_mapping(emotion:str):
+    """ EMotion mapping, because models have diff. outputs. """
     emotion_to_emotion = {
         "happy": "joy",
         "sad": "sadness",
@@ -798,6 +793,7 @@ def emotion_mapping(emotion:str):
 
 @app.get("/ask_llama/{query}/{emotion}/{allow_duplicates}")
 async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
+    """ Query Expansion through llama. New search results are also queried in this method. """
     response = await run_in_threadpool(
         requests.post,
         "http://localhost:11434/api/generate",

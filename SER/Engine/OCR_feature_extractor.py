@@ -5,7 +5,7 @@ import pandas as pd
 import re
 from pathlib import Path
 from collections import defaultdict
-from sentiment_detector import SentimentDetector
+from emotion_and_sentiment_detector import SentimentDetector
 import cv2
 
 conn = psycopg2.connect(

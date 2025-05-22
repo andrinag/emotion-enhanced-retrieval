@@ -11,10 +11,12 @@ import io
 
 app = FastAPI()
 
-############################# SENTIMENT OF FACE #####################################
+############################################################
+#                   SENTIMENT OF FACE                      #
+#############################################################
 
 class ImageRequest(BaseModel):
-    image: str  # Base64 encoded image
+    image: str  # Base64 encoded image that app sends
 
 pipe_sentiment_face = pipeline("image-classification", model="trpakov/vit-face-expression")
 
@@ -66,7 +68,9 @@ async def upload_base64_image(data: ImageRequest):
         return {"error": str(e)}
 
 
-######################## SENTIMENT OF TEXT QUERY ###################################
+############################################################
+#                   SENTIMENT OF TEXT QUERY                #
+##############################################################
 """
 This part of the implementation is currently not used, as the queries have a filter for sentiment in the app. 
 Code is left, in case in the future someones decides, that handling emotions in queries implicitly is better :) 

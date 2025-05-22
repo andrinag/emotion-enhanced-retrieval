@@ -13,10 +13,9 @@ import os
 import traceback
 import numpy as np
 import pandas as pd
-from sentiment_detector import SentimentDetector
+from emotion_and_sentiment_detector import SentimentDetector
 from psycopg2 import pool
-from sklearn.manifold import TSNE
-import ast
+
 
 MAX_WORKERS = 16
 BATCH_SIZE = 50
@@ -108,8 +107,9 @@ def check_file_exists(filename):
 
 
 
-
-######################## UPLOADING VIDEO ################################
+##################################################
+#                  UPLOADING VIDEO               #
+##################################################3
 
 def extract_frames(video_path, output_folder, msb_file):
     """
@@ -244,7 +244,7 @@ def process_frame(frame_info, object_id, audio_file):
         # -------- AUDIO ANALYSIS --------
         try:
             if audio_file and os.path.exists(audio_file):
-                emotion_acoustic = SD.predict_emotion_speech_acoustic(audio_file)
+                # emotion_acoustic = SD.predict_emotion_speech_acoustic(audio_file) # does not work -> only linguistic is done
                 audio_text = SD.get_text_from_mp3(audio_file)
                 if audio_text:
                     sentiment_result = SD.get_emotion_from_text(audio_text)
@@ -303,7 +303,6 @@ async def process_videos(files: list[UploadFile] = File(...)):
                 f.write(file.file.read())
             conn = get_db_connection()
             cursor = conn.cursor()
-            # Todo change this to the metadata method
             cursor.execute("INSERT INTO multimedia_objects (location) VALUES (%s) RETURNING object_id;",
                            (file.filename,))
             object_id = cursor.fetchone()[0]
@@ -327,54 +326,6 @@ async def process_videos(files: list[UploadFile] = File(...)):
         print("Error Traceback:", error_message)
         return {"error": str(e), "traceback": error_message}
 
-
-@app.post("/generate_low_dim_embeddings/")
-async def generate_low_dim_embeddings():
-    """
-    generates the low dimensional
-    """
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, embedding FROM multimedia_embeddings WHERE embedding IS NOT NULL;")
-        rows = cursor.fetchall()
-        #rows = cursor.fetchone() # for testing purpose
-        #print(f"Calculating reduced embedding for {rows}")
-
-        ids = []
-        embeddings = []
-
-        for row in rows:
-            ids.append(row[0])
-            embedding_list = ast.literal_eval(row[1])
-            embeddings.append(np.array(embedding_list))
-
-        embeddings = np.array(embeddings)
-
-        # Perform the TSNE (2 dimensions)
-        tsne = TSNE(n_components=2, perplexity=30, n_iter=1000, random_state=42)
-        reduced_embeddings = tsne.fit_transform(embeddings)
-
-        # save the result in the multimedia_embeddings table
-        if len(embeddings) < 5:
-            return {"error": f"Not enough embeddings for t-SNE (got {len(embeddings)}). Need at least 5."}
-
-        for i, emb_id in enumerate(ids):
-            x, y = reduced_embeddings[i]
-            cursor.execute(
-                "UPDATE multimedia_embeddings SET tsne_x = %s, tsne_y = %s WHERE id = %s;",
-                (float(x), float(y), emb_id)
-            )
-
-        conn.commit()
-        return {"message": f"Successfully stored 2D t-SNE embeddings for {len(ids)} items."}
-
-    except Exception as e:
-        error_message = traceback.format_exc()
-        print("Error Traceback:", error_message)
-        if conn:
-            conn.rollback()
-        return {"error": str(e), "traceback": error_message}
 
 
 @app.get("/hnsw_index")
