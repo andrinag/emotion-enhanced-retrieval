@@ -192,7 +192,7 @@ def process_frame(frame_info, object_id, audio_file):
     try:
         frame_path, frame_time, middle_frame = frame_info
 
-        # -------- IMAGE EMBEDDING --------
+        # -------- CLIP --------
         try:
             image = Image.open(frame_path).convert("RGB")
             img_byte_arr = io.BytesIO()
@@ -214,7 +214,7 @@ def process_frame(frame_info, object_id, audio_file):
             conn.rollback()
             return
 
-        # -------- FACE & EMOTION DETECTION --------
+        # -------- FACE -------------
         try:
             emotion, confidence, sentiment, annotated_path = SD.detect_faces_and_get_emotion_with_plots(frame_path)
             if emotion and confidence:
@@ -241,7 +241,7 @@ def process_frame(frame_info, object_id, audio_file):
             print(traceback.format_exc())
             conn.rollback()
 
-        # -------- AUDIO ANALYSIS --------
+        # -------- ASR --------
         try:
             if audio_file and os.path.exists(audio_file):
                 # emotion_acoustic = SD.predict_emotion_speech_acoustic(audio_file) # does not work -> only linguistic is done
@@ -264,9 +264,9 @@ def process_frame(frame_info, object_id, audio_file):
 
                 # Always insert something
                 cursor.execute("""
-                    INSERT INTO ASR (embedding_id, text, emotion_linguistic, confidence, sentiment, emotion_acoustic)
-                    VALUES (%s, %s, %s, %s, %s, %s);
-                """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category, emotion_acoustic))
+                    INSERT INTO ASR (embedding_id, text, emotion_linguistic, confidence, sentiment)
+                    VALUES (%s, %s, %s, %s, %s);
+                """, (embedding_id, audio_text, top_emotion, audio_confidence, sentiment_category))
                 conn.commit()
             else:
                 print(f"[WARNING] Audio file not found or not provided: {audio_file}")
