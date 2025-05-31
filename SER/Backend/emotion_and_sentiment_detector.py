@@ -145,14 +145,17 @@ class SentimentDetector:
             total_faces += 1
 
             cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(img, f"{emotion} ({confidence:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),2)
+            cv2.putText(img, f"{emotion} ({confidence:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0),
+                        1, cv2.LINE_AA)
 
         try:
             annotated_path = os.path.join(faces_dir, f"annotated_{os.path.basename(file_path)}")
+            cv2.imwrite(annotated_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+            """
             plt.figure(figsize=(10, 5))
             plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             plt.axis("off")
-            plt.savefig(annotated_path)
+            plt.savefig(annotated_path)"""
             plt.close()
         except Exception as e:
             print(f"[WARNING] Failed to save or render annotated image for {file_path}: {e}")
