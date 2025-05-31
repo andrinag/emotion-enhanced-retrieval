@@ -25,7 +25,7 @@ This repository contains the code for the bachelor's thesis **Enhancing Multimed
 1. Ensure **Python 3.10 or higher** is installed.
 2. Install the required Python packages:
    ```bash
-   pip install -r Engine/requirements.txt
+   pip install -r Backend/requirements.txt
    ```
 3. A system with a GPU is recommended, as multiple machine learning models are used.
 4. Create a database called multimedia_db (or rename it in the code) and create the schema according to DB_schema.sql.
@@ -62,7 +62,7 @@ When all of the videos and OCR data are inserted, please start the rest of the b
    ```
 2. Start the sentiment API :
 ```bash
-   python3 Sentiment_Detection/sentiment_api.py
+   python3 Sentiment_Detection/emotion_api.py
    ```
 3. Start the tinyLlama model on the server. This works best when run with Ollama. 
 
@@ -80,7 +80,7 @@ Run the project from Android Studio, and the app should deploy to your connected
 ## Models Used
 
 This project uses the following models:
-
+g
 - **Text-to-Emotion**: [michellejieli/emotion\_text\_classifier](https://huggingface.co/michellejieli/emotion_text_classifier)
 - **Facial Expression Recognition**: [trpakov/vit-face-expression](https://huggingface.co/trpakov/vit-face-expression)
 - **Face Recognition**: [DeepFace](https://github.com/serengil/deepface)
