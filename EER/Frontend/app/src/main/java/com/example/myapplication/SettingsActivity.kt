@@ -4,8 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import kotlin.apply
 
 
 /**
@@ -20,7 +22,12 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var radioLLM: RadioButton
     private lateinit var radioNearestNeighbor: RadioButton
     private lateinit var radioNone: RadioButton
-
+    private lateinit var switchCheerupMode: Switch
+    private lateinit var jokesCheckbox : CheckBox
+    private lateinit var complimentsCheckbox : CheckBox
+    private var cheerupMode = false;
+    private var jokesActivated = false;
+    private var complimentsActivated = false;
     private var duplicateVideos = true
     private var darkMode = true
     private var suggestionMode: String = "nearest"
@@ -42,6 +49,9 @@ class SettingsActivity : AppCompatActivity() {
         radioLLM = findViewById(R.id.radioLLM)
         radioNearestNeighbor = findViewById(R.id.radioNearestNeighbor)
         radioNone = findViewById(R.id.radioNone)
+        switchCheerupMode = findViewById(R.id.cheerupMode)
+        jokesCheckbox = findViewById(R.id.jokeCheckbox)
+        complimentsCheckbox = findViewById(R.id.complimentCheckbox)
     }
 
     /**
@@ -76,6 +86,18 @@ class SettingsActivity : AppCompatActivity() {
         switchDarkMode.setOnCheckedChangeListener { _, isChecked ->
             sharedPref.edit().putBoolean("darkMode", isChecked).apply()
         }
+        fun validateCheerupOptions() {
+            if (!jokesCheckbox.isChecked && !complimentsCheckbox.isChecked) {
+                // Force at least one to be checked (default to jokes)
+                jokesCheckbox.isChecked = true
+                jokesActivated = true
+                with(sharedPref.edit()) {
+                    putBoolean("jokesActivated", jokesActivated)
+                    apply()
+                }
+                Toast.makeText(this, "At least one option must be selected.", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         suggestionsRadioGroup.setOnCheckedChangeListener { _, checkedId ->
             val selectedMode = when (checkedId) {
@@ -86,6 +108,54 @@ class SettingsActivity : AppCompatActivity() {
             }
             sharedPref.edit().putString("suggestionMode", selectedMode).apply()
             Log.d("RADIO", "Selected suggestion mode: $selectedMode")
+        }
+
+        cheerupMode = sharedPref.getBoolean("cheerupMode", false)
+        jokesActivated = sharedPref.getBoolean("jokesActivated", false)
+        complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
+        switchCheerupMode.isChecked = cheerupMode
+        jokesCheckbox.isChecked = jokesActivated
+        complimentsCheckbox.isChecked = complimentsActivated
+
+        switchCheerupMode.setOnCheckedChangeListener { _, isChecked ->
+            cheerupMode = isChecked
+            with(sharedPref.edit()) {
+                putBoolean("cheerupMode", cheerupMode)
+                apply()
+            }
+            Log.d("SWITCH", "allowed CheerupMode $cheerupMode")
+        }
+
+
+        val cheerupOptionsLayout = findViewById<LinearLayout>(R.id.cheerupOptionsLayout)
+
+        switchCheerupMode.isChecked = cheerupMode
+        cheerupOptionsLayout.visibility = if (cheerupMode) View.VISIBLE else View.GONE
+
+        switchCheerupMode.setOnCheckedChangeListener { _, isChecked ->
+            cheerupMode = isChecked
+            with(sharedPref.edit()) {
+                putBoolean("cheerupMode", cheerupMode)
+                apply()
+            }
+            cheerupOptionsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+        jokesCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            jokesActivated = isChecked
+            with(sharedPref.edit()) {
+                putBoolean("jokesActivated", jokesActivated)
+                apply()
+            }
+            validateCheerupOptions()
+        }
+
+        complimentsCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            complimentsActivated = isChecked
+            with(sharedPref.edit()) {
+                putBoolean("complimentsActivated", complimentsActivated)
+                apply()
+            }
+            validateCheerupOptions()
         }
     }
 

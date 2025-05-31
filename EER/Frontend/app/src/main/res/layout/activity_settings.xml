@@ -92,6 +92,34 @@
                 android:layout_height="wrap_content"
                 android:text="None" />
         </RadioGroup>
+        <Switch
+            android:id="@+id/cheerupMode"
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:showText="false"
+            android:text="Cheer-Up Mode"
+            android:textSize="14sp"
+            tools:checked="false" />
+
+        <LinearLayout
+            android:id="@+id/cheerupOptionsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <CheckBox
+                android:id="@+id/jokeCheckbox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Enable Jokes"/>
+
+            <CheckBox
+                android:id="@+id/complimentCheckbox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Enable Compliments"/>
+        </LinearLayout>
 
 
 

@@ -30,14 +30,17 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
+import com.google.android.material.button.MaterialButton
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import java.util.Random
 
 class MainActivity : AppCompatActivity() {
 
@@ -62,14 +65,22 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        initViews()
+        editTextQuery = findViewById(R.id.editTextQuery)
+        settingsButton = findViewById(R.id.settingsButton)
+        helpButton = findViewById(R.id.helpButton)
+        refreshButton = findViewById(R.id.refreshButton)
+        buttonSearch = findViewById(R.id.buttonSearch)
+        cameraExecutor = Executors.newSingleThreadExecutor()
+        spinnerDataType = findViewById(R.id.spinnerDataType)
+        spinnerEmotion = findViewById(R.id.spinnerSentiment)
+
 
         if (allPermissionsGranted()) {
             startCameraStream()
         } else {
             ActivityCompat.requestPermissions(
                 this, REQUIRED_PERMISSIONS,
-                REQUEST_CODE_PERMISSIONS
+                Companion.REQUEST_CODE_PERMISSIONS
             )
         }
 
@@ -114,6 +125,7 @@ class MainActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
         spinnerEmotion = findViewById(R.id.spinnerSentiment)
+        refreshButton = findViewById(R.id.refreshButton)
     }
 
     override fun onResume() {
@@ -124,16 +136,87 @@ class MainActivity : AppCompatActivity() {
         duplicateVideos = sharedPref.getBoolean("duplicateVideos", false)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
         val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val cheerupMode = sharedPref.getBoolean("cheerupMode", false)
+        val complimentsActivated = sharedPref.getBoolean("complimentsActivated", false)
+        val jokesActivated = sharedPref.getBoolean("jokesActivated", false)
+        Log.d("CHEERUP", "cheerup mode is $cheerupMode and jokes are $jokesActivated and compliments are $complimentsActivated")
 
+
+        val jokeCardView = findViewById<CardView>(R.id.jokeCardView)
+        if (cheerupMode && (jokesActivated || complimentsActivated)) {
+            jokeCardView.visibility = View.VISIBLE
+
+            if (jokesActivated && complimentsActivated) {
+                val random = Random().nextBoolean()
+                if (random) {
+                    generateNewJokeOrCompliment("joke")
+                } else {
+                    generateNewJokeOrCompliment("compliment")
+                }
+            } else if (jokesActivated) {
+                generateNewJokeOrCompliment("joke")
+            } else if (complimentsActivated) {
+                generateNewJokeOrCompliment("compliment")
+            }
+        } else {
+            jokeCardView.visibility = View.GONE
+        }
         if (darkMode && currentMode != Configuration.UI_MODE_NIGHT_YES) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         } else if (!darkMode && currentMode != Configuration.UI_MODE_NIGHT_NO) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         }
 
+
+        val refreshButton = findViewById<MaterialButton>(R.id.refreshButton)
+        refreshButton.setOnClickListener {
+            if (!cheerupMode) return@setOnClickListener  // Don't refresh if cheerupMode is off
+
+            val random = Random()
+            when {
+                jokesActivated && complimentsActivated -> {
+                    val showJoke = random.nextBoolean()
+                    if (showJoke) {
+                        generateNewJokeOrCompliment("joke")
+                    } else {
+                        generateNewJokeOrCompliment("compliment")
+                    }
+                }
+                jokesActivated -> generateNewJokeOrCompliment("joke")
+                complimentsActivated -> generateNewJokeOrCompliment("compliment")
+            }
+        }
+
     }
 
 
+    private fun generateNewJokeOrCompliment(type: String) {
+        val url = "http://10.34.64.139:8004/$type"
+        val requestQueue = Volley.newRequestQueue(this)
+        var textToShow = ""
+        val stringRequest = StringRequest(Request.Method.GET, url, { response ->
+            try {
+                val jsonResponse = JSONObject(response)
+                if (type == "joke") {
+                    textToShow = jsonResponse.getString("joke")
+                } else {
+                    textToShow = jsonResponse.getString("compliment")
+                }
+                showJokeOrCompliment(textToShow)
+            } catch (e: Exception) {
+                Log.e("JOKE", "Error parsing joke: ${e.message}")
+            }
+        }, { error ->
+            Log.e("JOKE", "Error fetching joke: ${error.message}")
+        })
+        requestQueue.add(stringRequest)
+    }
+
+    private fun showJokeOrCompliment(text: String) {
+        runOnUiThread {
+            findViewById<TextView>(R.id.jokeTextView).text = text
+        }
+    }
 
 
     /**
@@ -152,9 +235,8 @@ class MainActivity : AppCompatActivity() {
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
-        val stringRequest = StringRequest(
-            Request.Method.GET, url,
-            Response.Listener<String> { response ->
+        val stringRequest =
+            StringRequest(Request.Method.GET, url, Response.Listener<String> { response ->
                 Log.i("VOLLEY", "Success! Response: $response")
 
                 try {
@@ -178,8 +260,7 @@ class MainActivity : AppCompatActivity() {
 
                         val intent = Intent(this, SearchResultsActivity::class.java)
                         intent.putExtra(
-                            "results_json",
-                            result.toString()
+                            "results_json", result.toString()
                         ) // send JSON as String
                         Log.d("Query", "Query is $query in Main")
                         intent.putExtra("currentQuery", query.toString())
@@ -202,8 +283,7 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
                 }
-            },
-            { error ->
+            }, { error ->
                 Log.e("VOLLEY", "No videos found in response")
                 val noResultsText = findViewById<TextView>(R.id.noResultsText)
                 runOnUiThread {
@@ -212,21 +292,15 @@ class MainActivity : AppCompatActivity() {
                             "No videos found for '$query' with datatype '$dataType' and emotion '$emotion' ."
                         visibility = View.VISIBLE
                         alpha = 1f
-                        animate()
-                            .alpha(0f)
-                            .setDuration(2000) // fade out duration 2s
-                            .setStartDelay(2000)
-                            .withEndAction { visibility = View.GONE }
-                            .start()
+                        animate().alpha(0f).setDuration(2000) // fade out duration 2s
+                            .setStartDelay(2000).withEndAction { visibility = View.GONE }.start()
                     }
                 }
 
             })
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
-            100000,
-            DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
-            DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+            100000, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         )
         requestQueue.add(stringRequest)
     }
@@ -237,17 +311,14 @@ class MainActivity : AppCompatActivity() {
      * of it only containing a query and no sentiment / emotion.
      */
     fun sendQueryRequest(
-        context: Context,
-        query: String,
-        callback: (JSONArray) -> Unit
+        context: Context, query: String, callback: (JSONArray) -> Unit
     ) {
         val url = "http://10.34.64.139:8001/search/$query"
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
-        val stringRequest = StringRequest(
-            Request.Method.GET, url,
-            Response.Listener<String> { response ->
+        val stringRequest =
+            StringRequest(Request.Method.GET, url, Response.Listener<String> { response ->
                 Log.i("VOLLEY", "Success! Response: $response")
 
                 try {
@@ -275,8 +346,7 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
                 }
-            },
-            { error ->
+            }, { error ->
                 Log.e("VOLLEY", "Volley Error: ${error.message}")
 
                 if (error.networkResponse != null) {
@@ -288,9 +358,7 @@ class MainActivity : AppCompatActivity() {
             })
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
-            100000,
-            DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
-            DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+            100000, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
         )
         requestQueue.add(stringRequest)
     }
@@ -300,9 +368,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
+        requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
@@ -327,15 +393,12 @@ class MainActivity : AppCompatActivity() {
         cameraProviderFuture.addListener({
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            val preview = Preview.Builder()
-                .build()
-            val cameraSelector = CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
-                .build()
+            val preview = Preview.Builder().build()
+            val cameraSelector =
+                CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build()
 
             val imageAnalyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
                 .also { analyzer ->
                     analyzer.setAnalyzer(cameraExecutor) { image ->
                         val currentTime = System.currentTimeMillis()
@@ -355,8 +418,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
-                Toast.makeText(this, "Front Camera Streaming Started!", Toast.LENGTH_SHORT)
-                    .show()
+                Toast.makeText(this, "Front Camera Streaming Started!", Toast.LENGTH_SHORT).show()
             } catch (exc: Exception) {
                 Log.e("CameraStream", "Failed to bind camera", exc)
             }
@@ -413,51 +475,49 @@ class MainActivity : AppCompatActivity() {
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
-        val stringRequest = object : StringRequest(Method.POST, url,
-            Response.Listener { response ->
-                Log.i("VOLLEY", "Success! Response: $response")
+        val stringRequest = object : StringRequest(Method.POST, url, Response.Listener { response ->
+            Log.i("VOLLEY", "Success! Response: $response")
 
-                try {
-                    val jsonResponse = JSONObject(response)
-                    val sentiment = jsonResponse.optString("sentiment", "Unknown")
-                    userEmotion = jsonResponse.optString("emotion", "Unknown")
-
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.text).text =
-                            "Sentiment: $sentiment\nEmotion: $userEmotion"
-                        val sentimentIcon = findViewById<ImageView>(R.id.sentimentIcon)
-                        when (userEmotion.lowercase()) {
-                            "happy" -> sentimentIcon.setImageResource(R.drawable.mood_24px)
-                            "sad" -> sentimentIcon.setImageResource(R.drawable.mood_bad_24px)
-                            "angry" -> sentimentIcon.setImageResource(R.drawable.sentiment_extremely_dissatisfied_24px)
-                            "neutral" -> sentimentIcon.setImageResource(R.drawable.sentiment_neutral_24px)
-                            "surprise" -> sentimentIcon.setImageResource(R.drawable.featured_seasonal_and_gifts_24px)
-                            "fear" -> sentimentIcon.setImageResource(R.drawable.sentiment_very_dissatisfied_24px)
-                            "disgust" -> sentimentIcon.setImageResource(R.drawable.sentiment_stressed_24px)
-                            else -> sentimentIcon.setImageResource(R.drawable.sentiment_neutral_24px)
-                        }
-
-                    }
-
-                } catch (e: Exception) {
-                    Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
-                }
-
-            },
-            Response.ErrorListener { error ->
-                Log.e("VOLLEY", "Error: ${error.message}")
-                if (error.networkResponse != null) {
-                    val statusCode = error.networkResponse.statusCode
-                    val responseData =
-                        error.networkResponse.data?.let { String(it) } ?: "No response body"
-                    Log.e("VOLLEY", "HTTP Status Code: $statusCode")
-                    Log.e("VOLLEY", "Response Data: $responseData")
-                }
+            try {
+                val jsonResponse = JSONObject(response)
+                val sentiment = jsonResponse.optString("sentiment", "Unknown")
+                userEmotion = jsonResponse.optString("emotion", "Unknown")
 
                 runOnUiThread {
-                    findViewById<TextView>(R.id.text).text = "Error: Could not get response"
+                    findViewById<TextView>(R.id.text).text =
+                        "Sentiment: $sentiment\nEmotion: $userEmotion"
+                    val sentimentIcon = findViewById<ImageView>(R.id.sentimentIcon)
+                    when (userEmotion.lowercase()) {
+                        "happy" -> sentimentIcon.setImageResource(R.drawable.mood_24px)
+                        "sad" -> sentimentIcon.setImageResource(R.drawable.mood_bad_24px)
+                        "angry" -> sentimentIcon.setImageResource(R.drawable.sentiment_extremely_dissatisfied_24px)
+                        "neutral" -> sentimentIcon.setImageResource(R.drawable.sentiment_neutral_24px)
+                        "surprise" -> sentimentIcon.setImageResource(R.drawable.featured_seasonal_and_gifts_24px)
+                        "fear" -> sentimentIcon.setImageResource(R.drawable.sentiment_very_dissatisfied_24px)
+                        "disgust" -> sentimentIcon.setImageResource(R.drawable.sentiment_stressed_24px)
+                        else -> sentimentIcon.setImageResource(R.drawable.sentiment_neutral_24px)
+                    }
+
                 }
-            }) {
+
+            } catch (e: Exception) {
+                Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
+            }
+
+        }, Response.ErrorListener { error ->
+            Log.e("VOLLEY", "Error: ${error.message}")
+            if (error.networkResponse != null) {
+                val statusCode = error.networkResponse.statusCode
+                val responseData =
+                    error.networkResponse.data?.let { String(it) } ?: "No response body"
+                Log.e("VOLLEY", "HTTP Status Code: $statusCode")
+                Log.e("VOLLEY", "Response Data: $responseData")
+            }
+
+            runOnUiThread {
+                findViewById<TextView>(R.id.text).text = "Error: Could not get response"
+            }
+        }) {
 
             override fun getBodyContentType(): String {
                 return "application/json; charset=utf-8"
@@ -470,8 +530,7 @@ class MainActivity : AppCompatActivity() {
             override fun parseNetworkResponse(response: NetworkResponse?): Response<String> {
                 val responseString = response?.data?.let { String(it) } ?: "No Response"
                 return Response.success(
-                    responseString,
-                    HttpHeaderParser.parseCacheHeaders(response)
+                    responseString, HttpHeaderParser.parseCacheHeaders(response)
                 )
             }
         }
@@ -488,34 +547,32 @@ class MainActivity : AppCompatActivity() {
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
-        val stringRequest = object : StringRequest(Method.POST, url,
-            Response.Listener { response ->
-                Log.i("VOLLEY", "Success! Response: $response")
+        val stringRequest = object : StringRequest(Method.POST, url, Response.Listener { response ->
+            Log.i("VOLLEY", "Success! Response: $response")
 
-                try {
-                    val jsonResponse = JSONObject(response).getJSONArray("emotion")
-                    val firstSentiment = jsonResponse.getJSONObject(0)
-                    val sentimentLabel = firstSentiment.getString("label")
-                    val sentimentScore = firstSentiment.getDouble("score")
+            try {
+                val jsonResponse = JSONObject(response).getJSONArray("emotion")
+                val firstSentiment = jsonResponse.getJSONObject(0)
+                val sentimentLabel = firstSentiment.getString("label")
+                val sentimentScore = firstSentiment.getDouble("score")
 
-                    val sentimentText =
-                        "Sentiment: $sentimentLabel (${String.format("%.2f", sentimentScore)})"
+                val sentimentText =
+                    "Sentiment: $sentimentLabel (${String.format("%.2f", sentimentScore)})"
 
-                } catch (e: Exception) {
-                    Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
-                }
+            } catch (e: Exception) {
+                Log.e("VOLLEY", "Error parsing JSON response: ${e.message}")
+            }
 
-            },
-            Response.ErrorListener { error ->
-                Log.e("VOLLEY", "Error: ${error.message}")
-                if (error.networkResponse != null) {
-                    val statusCode = error.networkResponse.statusCode
-                    val responseData =
-                        error.networkResponse.data?.let { String(it) } ?: "No response body"
-                    Log.e("VOLLEY", "HTTP Status Code: $statusCode")
-                    Log.e("VOLLEY", "Response Data: $responseData")
-                }
-            }) {
+        }, Response.ErrorListener { error ->
+            Log.e("VOLLEY", "Error: ${error.message}")
+            if (error.networkResponse != null) {
+                val statusCode = error.networkResponse.statusCode
+                val responseData =
+                    error.networkResponse.data?.let { String(it) } ?: "No response body"
+                Log.e("VOLLEY", "HTTP Status Code: $statusCode")
+                Log.e("VOLLEY", "Response Data: $responseData")
+            }
+        }) {
 
             override fun getBodyContentType(): String {
                 return "application/json; charset=utf-8"
@@ -528,8 +585,7 @@ class MainActivity : AppCompatActivity() {
             override fun parseNetworkResponse(response: NetworkResponse?): Response<String> {
                 val responseString = response?.data?.let { String(it) } ?: "No Response"
                 return Response.success(
-                    responseString,
-                    HttpHeaderParser.parseCacheHeaders(response)
+                    responseString, HttpHeaderParser.parseCacheHeaders(response)
                 )
             }
         }
