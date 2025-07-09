@@ -162,7 +162,7 @@ async def search_image_to_image(file: UploadFile = File(...)):
 #######################################################
 #                 TEXT TO IMAGE SEARCH                #
 #######################################################
-@app.get("/search/{query}/{allow_duplicates")
+@app.get("/search/{query}/{allow_duplicates}")
 @deprecated # function no longer in use in current implementation. Still useful.
 async def search_images(query: str, allow_duplicates: str):
     """
