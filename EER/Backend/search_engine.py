@@ -183,7 +183,7 @@ async def search_images(query: str, allow_duplicates: bool):
                 1 - (me.embedding <=> %s::vector) AS similarity
             FROM multimedia_embeddings me
             ORDER BY similarity DESC
-            LIMIT 5; 
+            LIMIT 20; 
             """, (query_embedding.tolist(),))
 
             result = cursor.fetchall()
@@ -195,7 +195,7 @@ async def search_images(query: str, allow_duplicates: bool):
                     1 - (me.embedding <=> %s::vector) AS similarity
                 FROM multimedia_embeddings me
                 ORDER BY similarity DESC
-                LIMIT 5; 
+                LIMIT 20; 
                 """, (query_embedding.tolist(),))
 
             result = cursor.fetchall()
