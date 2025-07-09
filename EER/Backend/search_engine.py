@@ -162,9 +162,9 @@ async def search_image_to_image(file: UploadFile = File(...)):
 #######################################################
 #                 TEXT TO IMAGE SEARCH                #
 #######################################################
-@app.get("/search/{query}")
+@app.get("/search/{query}/{allow_duplicates")
 @deprecated # function no longer in use in current implementation. Still useful.
-async def search_images(request: Request, query: str):
+async def search_images(query: str, allow_duplicates: str):
     """
     Search for videos related to the query and return the video path.
     TODO: make normalization of the result values for text to image
@@ -174,20 +174,32 @@ async def search_images(request: Request, query: str):
         cursor = conn.cursor()
         query_embedding = get_embedding(input_text=query)
         query_embedding = normalize_embedding(query_embedding)
-        print(query_embedding[-10:])
+        #print(query_embedding[-10:])
 
-    # Cosine comparison for the similarity
-        cursor.execute("""
-        SELECT 
-            (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
-            me.frame_time,
-            1 - (me.embedding <=> %s::vector) AS similarity
-        FROM multimedia_embeddings me
-        ORDER BY similarity DESC
-        LIMIT 5; 
-        """, (query_embedding.tolist(),))
+        if allow_duplicates:
+            cursor.execute("""
+            SELECT
+                (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                me.frame_time,
+                1 - (me.embedding <=> %s::vector) AS similarity
+            FROM multimedia_embeddings me
+            ORDER BY similarity DESC
+            LIMIT 5; 
+            """, (query_embedding.tolist(),))
 
-        result = cursor.fetchall()
+            result = cursor.fetchall()
+        else:
+            cursor.execute("""
+                SELECT
+                    (SELECT DISTINCT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                    me.frame_time,
+                    1 - (me.embedding <=> %s::vector) AS similarity
+                FROM multimedia_embeddings me
+                ORDER BY similarity DESC
+                LIMIT 5; 
+                """, (query_embedding.tolist(),))
+
+            result = cursor.fetchall()
         cursor.close()
 
         if not result:
@@ -216,7 +228,7 @@ async def search_images(request: Request, query: str):
 
 
 ##############################################################################
-#                 TEXT TO IMAGE SEARCH WITH EMOTION-ENHACNEMNT               #
+#                 TEXT TO IMAGE SEARCH WITH EMOTION-ENHANCEMENT               #
 ##############################################################################
 @app.get("/search_combined_face/{query}/{emotion}/{allow_duplicates}")
 async def search_combined_face(query: str, emotion: str, allow_duplicates: bool):

@@ -183,7 +183,7 @@
             return;
         }
 
-        fetch(`/search/${encodeURIComponent(query)}`)
+        fetch(`/search/${encodeURIComponent(query)}/False`)
             .then(response => response.json())
             .then(data => renderResults(data, "textResults"))
             .catch(error => console.error("Text search failed:", error));
