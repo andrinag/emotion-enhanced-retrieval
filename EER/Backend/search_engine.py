@@ -164,10 +164,6 @@ async def search_image_to_image(file: UploadFile = File(...)):
 #######################################################
 @app.get("/search/{query}/{allow_duplicates}")
 async def search_images(query: str, allow_duplicates: bool):
-    """
-    Search for videos related to the query and return the video path.
-    TODO: make normalization of the result values for text to image
-    """
     dir_1 = "/media/V3C/V3C1/video-480p/"
     try:
         cursor = conn.cursor()
@@ -189,48 +185,33 @@ async def search_images(query: str, allow_duplicates: bool):
         cursor.close()
 
         if not result:
-            return JSONResponse({"message":"No video found"}, status_code=404)
+            return JSONResponse({"message": "No video found"}, status_code=404)
 
         response = []
         seen_videos = set()
 
-        if allow_duplicates:
-            for row in result:
-                print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
-                if os.path.exists(dir_1 + row[0]):
-                    final_path = dir_1 + row[0]
-                    response = [
-                        {
-                            "video_path": final_path,
-                            "frame_time": row[1],
-                            "similarity": row[2]
-                        }
-                        for row in result
-                    ]
-                print(response)
-                return JSONResponse(response)
-            else:
-                return JSONResponse({"message": "No video found"}, status_code=404)
+        for location, frame_time, similarity in result:
+            abs_path = os.path.join(dir_1, location)
 
+            if not os.path.exists(abs_path):
+                continue
+
+            if not allow_duplicates and abs_path in seen_videos:
+                continue
+
+            seen_videos.add(abs_path)
+            response.append(
+                {
+                    "video_path": abs_path,
+                    "frame_time": frame_time,
+                    "similarity": similarity,
+                }
+            )
+
+        if response:
+            return JSONResponse(response)
         else:
-            for row in result:
-                print(f"Video: {row[0]}, Frame Time: {row[1]}, Similarity: {row[2]}")
-                path = dir_1 + row[0]
-                if os.path.exists(path) and path not in seen_videos:
-                    seen_videos.add(path)
-                    final_path = dir_1 + row[0]
-                    response = [
-                        {
-                            "video_path": final_path,
-                            "frame_time": row[1],
-                            "similarity": row[2]
-                        }
-                        for row in result
-                    ]
-                print(response)
-                return JSONResponse(response)
-            else:
-                return JSONResponse({"message": "No video found"}, status_code=404)
+            return JSONResponse({"message": "No video found"}, status_code=404)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
