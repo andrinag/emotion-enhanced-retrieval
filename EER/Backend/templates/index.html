@@ -193,7 +193,7 @@
         const query = document.getElementById("sentimentQuery").value.trim() || "none";
         const sentiment = document.getElementById("sentimentSelect").value;
 
-        fetch(`/search_combined_face/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+        fetch(`/search_combined_face/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}/false`)
             .then(response => response.json())
             .then(data => renderResults(data, "sentimentResults", true))
             .catch(error => console.error("Face sentiment search failed:", error));
@@ -203,7 +203,7 @@
         const query = document.getElementById("asrQuery").value.trim() || "none";
         const sentiment = document.getElementById("asrSentimentSelect").value;
 
-        fetch(`/search_combined_asr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+        fetch(`/search_combined_asr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}/false`)
             .then(response => response.json())
             .then(data => renderResults(data, "asrResults", false))
             .catch(error => console.error("ASR sentiment search failed:", error));
@@ -213,7 +213,7 @@
         const query = document.getElementById("ocrQuery").value.trim() || "none";
         const sentiment = document.getElementById("ocrSentimentSelect").value;
 
-        fetch(`/search_combined_ocr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+        fetch(`/search_combined_ocr/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}/false`)
             .then(response => response.json())
             .then(data => renderResults(data, "ocrResults", true))
             .catch(error => console.error("OCR sentiment search failed:", error));
@@ -223,7 +223,7 @@
         const query = document.getElementById("combinedQuery").value.trim() || "none";
         const sentiment = document.getElementById("combinedSentimentSelect").value;
 
-        fetch(`/search_combined_all/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}`)
+        fetch(`/search_combined_all/${encodeURIComponent(query)}/${encodeURIComponent(sentiment)}/false`)
             .then(response => response.json())
             .then(data => renderResults(data, "combinedResults", false))
             .catch(error => console.error("Combined sentiment search failed:", error));
