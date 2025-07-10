@@ -86,10 +86,11 @@
             android:layout_marginBottom="24dp">
 
             <LinearLayout
+                android:id="@+id/filterButtons"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
                 android:gravity="center_vertical"
+                android:orientation="horizontal"
                 android:padding="16dp">
 
                 <Spinner
@@ -97,15 +98,15 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:entries="@array/emotion_type_array"/>
+                    android:entries="@array/emotion_type_array" />
 
                 <Spinner
                     android:id="@+id/spinnerDataType"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:layout_marginStart="8dp"
-                    android:entries="@array/data_type_array"/>
+                    android:layout_weight="1"
+                    android:entries="@array/data_type_array" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

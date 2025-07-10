@@ -25,12 +25,14 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var switchCheerupMode: Switch
     private lateinit var jokesCheckbox : CheckBox
     private lateinit var complimentsCheckbox : CheckBox
+    private lateinit var emotionSwitch: Switch
     private var cheerupMode = false;
     private var jokesActivated = false;
     private var complimentsActivated = false;
     private var duplicateVideos = true
     private var darkMode = true
     private var suggestionMode: String = "nearest"
+    private var emotionMode = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +54,7 @@ class SettingsActivity : AppCompatActivity() {
         switchCheerupMode = findViewById(R.id.cheerupMode)
         jokesCheckbox = findViewById(R.id.jokeCheckbox)
         complimentsCheckbox = findViewById(R.id.complimentCheckbox)
+        emotionSwitch = findViewById(R.id.emotionCheckbox)
     }
 
     /**
@@ -62,6 +65,7 @@ class SettingsActivity : AppCompatActivity() {
         darkMode = sharedPref.getBoolean("darkMode", false)
         duplicateVideos = sharedPref.getBoolean("duplicateVideos", true)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
+        emotionMode = sharedPref.getBoolean("emotionMode", false)
     }
 
     /**
@@ -72,6 +76,7 @@ class SettingsActivity : AppCompatActivity() {
 
         switchDuplicateVideos.isChecked = duplicateVideos
         switchDarkMode.isChecked = darkMode
+        emotionSwitch.isChecked = emotionMode
 
         when (suggestionMode) {
             "llm" -> radioLLM.isChecked = true
@@ -85,6 +90,10 @@ class SettingsActivity : AppCompatActivity() {
 
         switchDarkMode.setOnCheckedChangeListener { _, isChecked ->
             sharedPref.edit().putBoolean("darkMode", isChecked).apply()
+        }
+        emotionSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPref.edit().putBoolean("emotionMode", isChecked).apply()
+
         }
         fun validateCheerupOptions() {
             if (!jokesCheckbox.isChecked && !complimentsCheckbox.isChecked) {
@@ -116,6 +125,7 @@ class SettingsActivity : AppCompatActivity() {
         switchCheerupMode.isChecked = cheerupMode
         jokesCheckbox.isChecked = jokesActivated
         complimentsCheckbox.isChecked = complimentsActivated
+        emotionMode = sharedPref.getBoolean("emotionMode", false)
 
         switchCheerupMode.setOnCheckedChangeListener { _, isChecked ->
             cheerupMode = isChecked
@@ -167,6 +177,7 @@ class SettingsActivity : AppCompatActivity() {
                     putExtra("allowDuplicateVideos", duplicateVideos)
                     putExtra("darkMode", darkMode)
                     putExtra("suggestionMode", suggestionMode)
+                    putExtra("emotionMode", emotionMode)
                 }
                 setResult(RESULT_OK, resultIntent)
                 finish()

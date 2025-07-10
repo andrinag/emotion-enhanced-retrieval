@@ -21,6 +21,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -53,10 +54,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerDataType: Spinner
     private lateinit var spinnerEmotion: Spinner
     private lateinit var refreshButton: Button
+    private lateinit var filterButtons: LinearLayout
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
     var suggestionMode: String = "nearest"
     var duplicateVideos: Boolean = true
+    var emotionMode: Boolean = false
 
 
     /**
@@ -73,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         spinnerDataType = findViewById(R.id.spinnerDataType)
         spinnerEmotion = findViewById(R.id.spinnerSentiment)
+        filterButtons = findViewById(R.id.filterButtons)
 
 
         if (allPermissionsGranted()) {
@@ -106,11 +110,21 @@ class MainActivity : AppCompatActivity() {
                     emotionSpinner = userEmotion
                     Log.d("EMOTION", "taking current emotion of user $emotionSpinner")
                 }
-                sendQueryRequestWithSentiment(this, query, dataType, emotionSpinner) { result ->
-                    if (true) {
-                        Log.d("VOLLEY", "response: $result")
-                    } else {
-                        Log.e("VOLLEY", "Request failed")
+                if (emotionMode) {
+                    sendQueryRequestWithSentiment(this, query, dataType, emotionSpinner) { result ->
+                        if (true) {
+                            Log.d("VOLLEY", "response: $result")
+                        } else {
+                            Log.e("VOLLEY", "Request failed")
+                        }
+                    }
+                } else {
+                    sendQueryRequestWithoutSentiment(this, query, dataType, emotionSpinner) { result ->
+                        if (true) {
+                            Log.d("VOLLEY", "response: $result")
+                        } else {
+                            Log.e("VOLLEY", "Request failed")
+                        }
                     }
                 }
             }
@@ -133,6 +147,8 @@ class MainActivity : AppCompatActivity() {
         startCameraStream()
         val sharedPref = getSharedPreferences("AppSettings", MODE_PRIVATE)
         val darkMode = sharedPref.getBoolean("darkMode", false)
+        emotionMode = sharedPref.getBoolean("emotionMode", false)
+        filterButtons.visibility = if (emotionMode) View.VISIBLE else View.GONE
         duplicateVideos = sharedPref.getBoolean("duplicateVideos", false)
         suggestionMode = sharedPref.getString("suggestionMode", "nearest") ?: "nearest"
         val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
@@ -216,6 +232,88 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             findViewById<TextView>(R.id.jokeTextView).text = text
         }
+    }
+
+    fun sendQueryRequestWithoutSentiment(
+    context: Context,
+    query: String,
+    dataType: String,
+    emotion: String,
+    callback: (JSONArray) -> Unit
+    ) {
+        val url =
+            "http://10.34.64.139:8001/search/$query/$duplicateVideos"
+
+        val requestQueue: RequestQueue = Volley.newRequestQueue(context)
+
+        val stringRequest =
+            StringRequest(Request.Method.GET, url, Response.Listener<String> { response ->
+                Log.i("VOLLEY", "Success! Response: $response")
+
+                try {
+                    val result = JSONArray(response)
+                    Log.d("VOLLEY", "Callback being executed with response: $result")
+                    callback(result)
+                    Log.i("VIDEO", "starting to play the video here")
+                    if (result.length() > 0) {
+                        val firstVideo = result.getJSONObject(0)
+                        val timeString = result.getJSONObject(0).getString("frame_time")
+                        var time: Double = 0.0
+                        try {
+                            time = timeString.toDouble()
+                        } catch (nfe: NumberFormatException) {
+                            Log.e("VIDEO", "Could not convert timeString to Float")
+                        }
+                        val videoPath = firstVideo.getString("video_path")
+                        val baseUrl = "http://10.34.64.139:8001"
+                        val videoUrl = "$baseUrl$videoPath"
+                        Log.d("VOLLEY", "Playing video from URL: $videoUrl")
+
+                        val intent = Intent(this, SearchResultsActivity::class.java)
+                        intent.putExtra(
+                            "results_json", result.toString()
+                        ) // send JSON as String
+                        Log.d("Query", "Query is $query in Main")
+                        intent.putExtra("currentQuery", query.toString())
+                        intent.putExtra("results_json", result.toString())
+                        intent.putExtra("currentQuery", query)
+                        intent.putExtra("emotion", emotionSpinner)
+                        intent.putExtra("dataType", dataType)
+                        intent.putExtra("suggestionMode", suggestionMode)
+                        intent.putExtra("duplicateVideos", duplicateVideos)
+                        startActivity(intent)
+                        val imagePath = firstVideo.optString("annotated_image", "")
+                        if (imagePath.isNotEmpty()) {
+                            val imageUrl = "http://10.34.64.139:8001/$imagePath"
+                            Log.d("Image Path: ", imageUrl)
+                        }
+                    } else {
+                        Log.e("VOLLEY", "No videos found in response")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
+                }
+            }, { error ->
+                Log.e("VOLLEY", "No videos found in response")
+                val noResultsText = findViewById<TextView>(R.id.noResultsText)
+                runOnUiThread {
+                    noResultsText.apply {
+                        text =
+                            "No videos found for '$query' with datatype '$dataType' and emotion '$emotion' ."
+                        visibility = View.VISIBLE
+                        alpha = 1f
+                        animate().alpha(0f).setDuration(2000) // fade out duration 2s
+                            .setStartDelay(2000).withEndAction { visibility = View.GONE }.start()
+                    }
+                }
+
+            })
+
+        stringRequest.retryPolicy = DefaultRetryPolicy(
+            100000, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+        )
+        requestQueue.add(stringRequest)
     }
 
 
