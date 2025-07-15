@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "My Application"
 include(":app")
- 
+//include(":openapi-client-android")
+//project(":openapi-client-android").projectDir = file("openapi-client-android")
