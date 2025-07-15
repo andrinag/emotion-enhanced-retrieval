@@ -18,6 +18,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var loginButton: Button
     private lateinit var usernameField: EditText
     private lateinit var passwordField: EditText
+    private lateinit var userlessButton: Button
     private var userApi = UserApi("http://10.34.64.205:8080")
 
 
@@ -26,6 +27,7 @@ class LoginActivity : AppCompatActivity() {
         setContentView(R.layout.activity_login)
 
         loginButton = findViewById(R.id.loginButton)
+        userlessButton = findViewById(R.id.userlessButton)
         usernameField = findViewById(R.id.usernameField)
         passwordField = findViewById(R.id.passwordField)
 
@@ -39,6 +41,13 @@ class LoginActivity : AppCompatActivity() {
             } else {
                 loginUser(username, password)
             }
+        }
+
+        userlessButton.setOnClickListener {
+            val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
+            userPref.edit().putString("username", null).apply()
+            val intent = Intent(this@LoginActivity, MainActivity::class.java)
+            startActivity(intent)
         }
     }
 

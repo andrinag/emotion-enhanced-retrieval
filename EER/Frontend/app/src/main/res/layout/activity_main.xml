@@ -13,12 +13,6 @@
         android:padding="16dp">
 
         <!-- Top Actions (Settings & Help) -->
-        <TextView
-            android:id="@+id/nameText"
-            android:layout_width="match_parent"
-            android:layout_height="37dp"
-            android:text="TextView"
-            android:textSize="18sp" />
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
@@ -29,14 +23,15 @@
                 android:id="@+id/helpButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="32dp"
                 android:backgroundTint="?attr/colorPrimary"
                 android:text="Help"
                 app:cornerRadius="24dp"
                 app:icon="@drawable/help_24px"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/settingsButton"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                android:layout_marginEnd="8dp"/>
+                app:layout_constraintVertical_bias="1.0" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/settingsButton"
@@ -46,12 +41,42 @@
                 android:text="Settings"
                 app:cornerRadius="24dp"
                 app:icon="@drawable/ic_settings"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/logoutButton"
+                android:layout_width="53dp"
+                android:layout_height="47dp"
+                android:backgroundTint="?attr/colorPrimary"
+                app:cornerRadius="24dp"
+                app:icon="@drawable/logout_24px"
+                app:layout_constraintEnd_toStartOf="@+id/helpButton"
+                app:layout_constraintHorizontal_bias="0.216"
+                app:layout_constraintStart_toStartOf="parent"
+                tools:layout_editor_absoluteY="1dp" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- Sentiment Status -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/nameText"
+                android:layout_width="223dp"
+                android:layout_height="42dp"
+                android:text="TextView"
+                android:textAlignment="viewStart"
+                android:textSize="16sp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

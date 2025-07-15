@@ -36,9 +36,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
+import com.example.myapplication.LoginActivity
 import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import org.openapitools.client.apis.UserApi
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import java.util.Random
@@ -56,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var refreshButton: Button
     private lateinit var filterButtons: LinearLayout
     private lateinit var nameText: TextView
+    private lateinit var logoutButton: Button
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
     var suggestionMode: String = "nearest"
@@ -78,6 +84,7 @@ class MainActivity : AppCompatActivity() {
         spinnerDataType = findViewById(R.id.spinnerDataType)
         spinnerEmotion = findViewById(R.id.spinnerSentiment)
         filterButtons = findViewById(R.id.filterButtons)
+        logoutButton = findViewById(R.id.logoutButton)
         nameText = findViewById(R.id.nameText)
 
 
@@ -93,6 +100,9 @@ class MainActivity : AppCompatActivity() {
         val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
         val username = userPref.getString("username", null)
 
+        logoutButton.isEnabled = username != null
+        logoutButton.alpha = if (username != null) 1.0f else 0.5f
+
         if (username != null) {
             findViewById<TextView>(R.id.nameText).text = "Hello, $username!"
         }
@@ -107,6 +117,14 @@ class MainActivity : AppCompatActivity() {
         // Listener for the Help Button
         helpButton.setOnClickListener {
             val intent = Intent(this, HelpActivity::class.java)
+            startActivity(intent)
+        }
+
+        logoutButton.setOnClickListener {
+            val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
+            userPref.edit().putString("username", null).apply()
+            val intent = Intent(this, MainActivity::class.java)
+            Toast.makeText(this@MainActivity, "You have been logged out!", Toast.LENGTH_SHORT).show()
             startActivity(intent)
         }
 
@@ -141,16 +159,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun initViews() {
-        editTextQuery = findViewById(R.id.editTextQuery)
-        settingsButton = findViewById(R.id.settingsButton)
-        helpButton = findViewById(R.id.helpButton)
-        buttonSearch = findViewById(R.id.buttonSearch)
-        cameraExecutor = Executors.newSingleThreadExecutor()
-        spinnerDataType = findViewById(R.id.spinnerDataType)
-        spinnerEmotion = findViewById(R.id.spinnerSentiment)
-        refreshButton = findViewById(R.id.refreshButton)
-    }
 
     override fun onResume() {
         super.onResume()
@@ -216,13 +224,15 @@ class MainActivity : AppCompatActivity() {
         val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
         val username = userPref.getString("username", null)
 
+        logoutButton.isEnabled = username != null
+        logoutButton.alpha = if (username != null) 1.0f else 0.5f
+
         if (username != null) {
             findViewById<TextView>(R.id.nameText).text = "Hello, $username!"
+        } else {
+            findViewById<TextView>(R.id.nameText).text = "You are currently not logged in."
         }
-
-
     }
-
 
     private fun generateNewJokeOrCompliment(type: String) {
         val url = "http://10.34.64.139:8004/$type"
@@ -547,6 +557,8 @@ class MainActivity : AppCompatActivity() {
      * shuts down the camera when app is closed
      */
     override fun onDestroy() {
+        val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
+        userPref.edit().remove("username").apply()
         super.onDestroy()
         cameraExecutor.shutdown()
     }
