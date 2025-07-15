@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerEmotion: Spinner
     private lateinit var refreshButton: Button
     private lateinit var filterButtons: LinearLayout
+    private lateinit var nameText: TextView
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
     var suggestionMode: String = "nearest"
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         spinnerDataType = findViewById(R.id.spinnerDataType)
         spinnerEmotion = findViewById(R.id.spinnerSentiment)
         filterButtons = findViewById(R.id.filterButtons)
+        nameText = findViewById(R.id.nameText)
 
 
         if (allPermissionsGranted()) {
@@ -87,6 +89,14 @@ class MainActivity : AppCompatActivity() {
                 Companion.REQUEST_CODE_PERMISSIONS
             )
         }
+
+        val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
+        val username = userPref.getString("username", null)
+
+        if (username != null) {
+            findViewById<TextView>(R.id.nameText).text = "Hello, $username!"
+        }
+
 
         // Listener for the Settings Button
         settingsButton.setOnClickListener {
@@ -202,6 +212,14 @@ class MainActivity : AppCompatActivity() {
                 complimentsActivated -> generateNewJokeOrCompliment("compliment")
             }
         }
+
+        val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
+        val username = userPref.getString("username", null)
+
+        if (username != null) {
+            findViewById<TextView>(R.id.nameText).text = "Hello, $username!"
+        }
+
 
     }
 

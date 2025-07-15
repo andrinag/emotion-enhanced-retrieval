@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -9,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.openapitools.client.apis.UserApi
 import org.openapitools.client.models.LoginRequest
 
@@ -45,20 +45,29 @@ class LoginActivity : AppCompatActivity() {
 
     private fun loginUser(username: String, password: String) {
         val loginRequest = LoginRequest(
-            username = "andrina",
-            password = "emotion"
+            username = username,
+            password = password
         )
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val user = userApi.postApiV2Login(loginRequest)
-                Log.d("LOGIN", "User logged in: ${user.username}")  // or whatever field the response has
+                Log.d("LOGIN", "User logged in: ${user.username}")  // replace with actual field
+                launch(Dispatchers.Main) {
+                    val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
+                    userPref.edit().putString("username", user.username).apply()
+                    Toast.makeText(this@LoginActivity, "Welcome, ${user.username}!", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this@LoginActivity, MainActivity::class.java)
+                    startActivity(intent)
+                    finish()
+                }
 
             } catch (e: Exception) {
                 Log.e("LOGIN", "Login failed: ${e.message}")
+                launch(Dispatchers.Main) {
+                    Toast.makeText(this@LoginActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
-
-
-
     }
+
 }

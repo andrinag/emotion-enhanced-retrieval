@@ -5,141 +5,142 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout
-        android:id="@+id/linearLayout"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <!-- Settings Title -->
-
-        <TextView
-            android:id="@+id/settingsExplanation"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:paddingBottom="24dp"
-            android:text="Customize how the app behaves for your searches!"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingBottom="8dp"
-            android:text="Show duplicate videos in search results?"
-            android:textSize="16sp" />
-
-        <Switch
-            android:id="@+id/duplicateVideos"
-            android:layout_width="match_parent"
-            android:layout_height="65dp"
-            android:text="Allow Duplicate Videos"
-            android:textSize="14sp"
-            tools:checked="true" />
-
-        <TextView
-            android:id="@+id/textView4"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingBottom="8dp"
-            android:text="App Layout"
-            android:textSize="16sp" />
-
-        <Switch
-            android:id="@+id/darkmode"
-            android:layout_width="match_parent"
-            android:layout_height="65dp"
-            android:showText="false"
-            android:text="Darkmode"
-            android:textSize="14sp"
-            tools:checked="true" />
-
-        <TextView
-            android:id="@+id/emotionTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingBottom="8dp"
-            android:text="Emotions"
-            android:textSize="16sp" />
-
-        <Switch
-            android:id="@+id/emotionCheckbox"
-            android:layout_width="match_parent"
-            android:layout_height="65dp"
-            android:showText="false"
-            android:text="Emotions Activated in Search"
-            android:textSize="14sp"
-            tools:checked="true" />
-
-        <TextView
-            android:id="@+id/textView5"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingBottom="8dp"
-            android:text="Suggestion Mode"
-            android:textSize="16sp" />
-
-        <RadioGroup
-            android:id="@+id/suggestionsRadioGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <RadioButton
-                android:id="@+id/radioLLM"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="LLM (Large Language Model)" />
-
-            <RadioButton
-                android:id="@+id/radioNearestNeighbor"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Nearest Neighbor" />
-
-            <RadioButton
-                android:id="@+id/radioNone"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="None" />
-        </RadioGroup>
-        <Switch
-            android:id="@+id/cheerupMode"
-            android:layout_width="match_parent"
-            android:layout_height="65dp"
-            android:showText="false"
-            android:text="Cheer-Up Mode"
-            android:textSize="14sp"
-            tools:checked="false" />
+        android:layout_height="match_parent">
 
         <LinearLayout
-            android:id="@+id/cheerupOptionsLayout"
+            android:id="@+id/linearLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:padding="16dp">
 
-            <CheckBox
-                android:id="@+id/jokeCheckbox"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Enable Jokes"/>
+            <!-- Settings Title -->
 
-            <CheckBox
-                android:id="@+id/complimentCheckbox"
-                android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/settingsExplanation"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Enable Compliments"/>
+                android:gravity="center"
+                android:paddingBottom="24dp"
+                android:text="Customize how the app behaves for your searches!"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:text="Show duplicate videos in search results?"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/duplicateVideos"
+                android:layout_width="match_parent"
+                android:layout_height="65dp"
+                android:text="Allow Duplicate Videos"
+                android:textSize="14sp"
+                tools:checked="true" />
+
+            <TextView
+                android:id="@+id/textView4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:text="App Layout"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/darkmode"
+                android:layout_width="match_parent"
+                android:layout_height="65dp"
+                android:showText="false"
+                android:text="Darkmode"
+                android:textSize="14sp"
+                tools:checked="true" />
+
+            <TextView
+                android:id="@+id/emotionTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:text="Emotions"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/emotionCheckbox"
+                android:layout_width="match_parent"
+                android:layout_height="65dp"
+                android:showText="false"
+                android:text="Emotions Activated in Search"
+                android:textSize="14sp"
+                tools:checked="true" />
+
+            <TextView
+                android:id="@+id/textView5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:text="Suggestion Mode"
+                android:textSize="16sp" />
+
+            <RadioGroup
+                android:id="@+id/suggestionsRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/radioLLM"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LLM (Large Language Model)" />
+
+                <RadioButton
+                    android:id="@+id/radioNearestNeighbor"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Nearest Neighbor" />
+
+                <RadioButton
+                    android:id="@+id/radioNone"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="None" />
+            </RadioGroup>
+
+            <Switch
+                android:id="@+id/cheerupMode"
+                android:layout_width="match_parent"
+                android:layout_height="65dp"
+                android:showText="false"
+                android:text="Cheer-Up Mode"
+                android:textSize="14sp"
+                tools:checked="false" />
+
+            <LinearLayout
+                android:id="@+id/cheerupOptionsLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <CheckBox
+                    android:id="@+id/jokeCheckbox"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enable Jokes" />
+
+                <CheckBox
+                    android:id="@+id/complimentCheckbox"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enable Compliments" />
+            </LinearLayout>
+
+
         </LinearLayout>
-
-
-
-    </LinearLayout>
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

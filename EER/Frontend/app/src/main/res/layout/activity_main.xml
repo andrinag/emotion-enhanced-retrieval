@@ -13,6 +13,13 @@
         android:padding="16dp">
 
         <!-- Top Actions (Settings & Help) -->
+        <TextView
+            android:id="@+id/nameText"
+            android:layout_width="match_parent"
+            android:layout_height="37dp"
+            android:text="TextView"
+            android:textSize="18sp" />
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
