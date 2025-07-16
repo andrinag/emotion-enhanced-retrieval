@@ -60,12 +60,14 @@ class LoginActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val user = userApi.postApiV2Login(loginRequest)
+                Log.d("LOGIN", "Reponse ${user.sessionId}")
                 Log.d("LOGIN", "User logged in: ${user.username}")  // replace with actual field
                 launch(Dispatchers.Main) {
                     val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
                     userPref.edit().putString("username", user.username).apply()
+                    userPref.edit().putString("sessionId", user.sessionId).apply()
                     Toast.makeText(this@LoginActivity, "Welcome, ${user.username}!", Toast.LENGTH_SHORT).show()
-                    val intent = Intent(this@LoginActivity, MainActivity::class.java)
+                    val intent = Intent(this@LoginActivity, TaskInformationActivity::class.java)
                     startActivity(intent)
                     finish()
                 }
