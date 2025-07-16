@@ -1,4 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
@@ -23,6 +25,7 @@
             android:textSize="18sp" />
 
         <!-- Video title -->
+
         <TextView
             android:id="@+id/videoTitle"
             android:layout_width="match_parent"
@@ -33,6 +36,17 @@
             android:textAlignment="center"
             android:textColor="?android:attr/textColorPrimary"
             android:textSize="34sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/submitButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:backgroundTint="?attr/colorPrimary"
+            android:text="Submit"
+            android:textColor="?android:attr/textColorPrimary"
+            app:cornerRadius="16dp"
+            app:icon="@drawable/arrow_upward_24px" />
 
         <FrameLayout
             android:layout_width="match_parent"

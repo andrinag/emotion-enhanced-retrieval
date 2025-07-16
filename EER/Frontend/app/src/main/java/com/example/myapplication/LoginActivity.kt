@@ -66,6 +66,7 @@ class LoginActivity : AppCompatActivity() {
                     val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
                     userPref.edit().putString("username", user.username).apply()
                     userPref.edit().putString("sessionId", user.sessionId).apply()
+                    Log.d("EVAL", "SessionId ${user.sessionId}")
                     Toast.makeText(this@LoginActivity, "Welcome, ${user.username}!", Toast.LENGTH_SHORT).show()
                     val intent = Intent(this@LoginActivity, TaskInformationActivity::class.java)
                     startActivity(intent)

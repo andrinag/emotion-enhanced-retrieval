@@ -61,7 +61,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var refreshButton: Button
     private lateinit var filterButtons: LinearLayout
     private lateinit var nameText: TextView
+    private lateinit var loginButton: Button
     private lateinit var logoutButton: Button
+
     var userEmotion: String = "happy"
     var emotionSpinner = "happy"
     var suggestionMode: String = "nearest"
@@ -85,6 +87,7 @@ class MainActivity : AppCompatActivity() {
         spinnerEmotion = findViewById(R.id.spinnerSentiment)
         filterButtons = findViewById(R.id.filterButtons)
         logoutButton = findViewById(R.id.logoutButton)
+        loginButton = findViewById(R.id.loginButton)
         nameText = findViewById(R.id.nameText)
 
 
@@ -100,8 +103,16 @@ class MainActivity : AppCompatActivity() {
         val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
         val username = userPref.getString("username", null)
 
-        logoutButton.isEnabled = username != null
-        logoutButton.alpha = if (username != null) 1.0f else 0.5f
+        if (username != null) {
+            nameText.text = "Hello, $username!"
+            logoutButton.visibility = View.VISIBLE
+            loginButton.visibility = View.GONE
+        } else {
+            nameText.text = "You are currently not logged in."
+            logoutButton.visibility = View.GONE
+            loginButton.visibility = View.VISIBLE
+        }
+
 
         if (username != null) {
             findViewById<TextView>(R.id.nameText).text = "Hello, $username!"
@@ -120,13 +131,17 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        loginButton.setOnClickListener {
+            startActivity(Intent(this, LoginActivity::class.java))
+        }
+
         logoutButton.setOnClickListener {
             val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
-            userPref.edit().putString("username", null).apply()
-            val intent = Intent(this, MainActivity::class.java)
-            Toast.makeText(this@MainActivity, "You have been logged out!", Toast.LENGTH_SHORT).show()
-            startActivity(intent)
+            userPref.edit().remove("username").apply()
+            Toast.makeText(this, "You have been logged out!", Toast.LENGTH_SHORT).show()
+            recreate()
         }
+
 
         buttonSearch.setOnClickListener {
             val query = editTextQuery.text.toString().trim()
@@ -224,8 +239,16 @@ class MainActivity : AppCompatActivity() {
         val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
         val username = userPref.getString("username", null)
 
-        logoutButton.isEnabled = username != null
-        logoutButton.alpha = if (username != null) 1.0f else 0.5f
+        if (username != null) {
+            nameText.text = "Hello, $username!"
+            logoutButton.visibility = View.VISIBLE
+            loginButton.visibility = View.GONE
+        } else {
+            nameText.text = "You are currently not logged in."
+            logoutButton.visibility = View.GONE
+            loginButton.visibility = View.VISIBLE
+        }
+
 
         if (username != null) {
             findViewById<TextView>(R.id.nameText).text = "Hello, $username!"

@@ -2,12 +2,26 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="?android:attr/windowBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:divider="?android:attr/dividerHorizontal"
+        android:showDividers="middle"
+        android:dividerPadding="8dp">
+
+        <TextView
+            android:id="@+id/taskInfoHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Evaluation Overview"
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="12dp" />
 
         <TextView
             android:id="@+id/taskInfoText"
@@ -15,6 +29,9 @@
             android:layout_height="wrap_content"
             android:text="Loading..."
             android:textSize="16sp"
+            android:padding="8dp"
+            android:background="@android:color/background_light"
+            android:textColor="@android:color/black"
             android:layout_marginBottom="24dp" />
 
         <Button
@@ -22,6 +39,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Done"
-            android:layout_gravity="center_horizontal" />
+            android:layout_gravity="center_horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:textAllCaps="false"
+            android:backgroundTint="?attr/colorPrimary"
+            android:textColor="@android:color/white"/>
     </LinearLayout>
 </ScrollView>

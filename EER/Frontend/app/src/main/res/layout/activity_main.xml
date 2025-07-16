@@ -23,7 +23,7 @@
                 android:id="@+id/helpButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="32dp"
+                android:layout_marginEnd="8dp"
                 android:backgroundTint="?attr/colorPrimary"
                 android:text="Help"
                 app:cornerRadius="24dp"
@@ -31,7 +31,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/settingsButton"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_bias="1.0" />
+                app:layout_constraintVertical_bias="0.0" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/settingsButton"
@@ -46,16 +46,27 @@
                 app:layout_constraintTop_toTopOf="parent" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/logoutButton"
-                android:layout_width="53dp"
+                android:id="@+id/loginButton"
+                android:layout_width="51dp"
                 android:layout_height="47dp"
                 android:backgroundTint="?attr/colorPrimary"
+                android:text=""
+                android:textColor="?attr/colorOnPrimary"
+                android:visibility="gone"
                 app:cornerRadius="24dp"
-                app:icon="@drawable/logout_24px"
-                app:layout_constraintEnd_toStartOf="@+id/helpButton"
-                app:layout_constraintHorizontal_bias="0.216"
-                app:layout_constraintStart_toStartOf="parent"
-                tools:layout_editor_absoluteY="1dp" />
+                app:icon="@drawable/login_24px" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/logoutButton"
+                android:layout_width="49dp"
+                android:layout_height="48dp"
+                android:backgroundTint="?attr/colorPrimary"
+                android:text=""
+                android:textColor="?attr/colorOnPrimary"
+                android:visibility="gone"
+                app:cornerRadius="24dp"
+                app:icon="@drawable/logout_24px" />
+
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- Sentiment Status -->
