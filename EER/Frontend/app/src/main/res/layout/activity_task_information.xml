@@ -23,15 +23,10 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="12dp" />
 
-        <TextView
-            android:id="@+id/taskInfoText"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/evaluationRecyclerView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Loading..."
-            android:textSize="16sp"
-            android:padding="8dp"
-            android:background="@android:color/background_light"
-            android:textColor="@android:color/black"
             android:layout_marginBottom="24dp" />
 
         <Button

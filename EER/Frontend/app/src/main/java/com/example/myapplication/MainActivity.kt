@@ -102,6 +102,8 @@ class MainActivity : AppCompatActivity() {
 
         val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
         val username = userPref.getString("username", null)
+        val evaluationId = userPref.getString("evaluationId", null)
+        Log.d("EVAL", "EvaluationId $evaluationId")
 
         if (username != null) {
             nameText.text = "Hello, $username!"

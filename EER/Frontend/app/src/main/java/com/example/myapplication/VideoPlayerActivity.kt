@@ -33,8 +33,13 @@ import com.android.volley.toolbox.HttpHeaderParser
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import com.bumptech.glide.Glide
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.openapitools.client.apis.SubmissionApi
 import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.util.concurrent.ExecutorService
@@ -50,6 +55,7 @@ class VideoPlayerActivity : AppCompatActivity() {
     private lateinit var suggestionsAdapter: ResultsAdapter
     private lateinit var llamaQueryText: TextView
     private lateinit var buttonShowLlamaQuery: Button
+    private lateinit var submitButton: Button
 
     private val REQUIRED_PERMISSIONS = arrayOf(android.Manifest.permission.CAMERA)
 
@@ -79,6 +85,17 @@ class VideoPlayerActivity : AppCompatActivity() {
         extractIntentExtras()
         setupVideoPlayer()
         setupCameraStream()
+        submitButton.setOnClickListener {
+            val evaluationId = getSharedPreferences("UserSettings", MODE_PRIVATE)
+                .getString("evaluationId", null)
+                ?: run {
+                Toast.makeText(this, "Missing evaluation ID", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val sessionToken = getSharedPreferences("UserSettings", MODE_PRIVATE).getString("sessionId", null)
+            Log.d("EVAL", "Session Token $sessionToken")
+            submitCurrentVideoFrame(evaluationId, sessionToken)
+        }
     }
 
     /**
@@ -93,7 +110,49 @@ class VideoPlayerActivity : AppCompatActivity() {
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         llamaQueryText = findViewById(R.id.llamaQueryText)
         buttonShowLlamaQuery = findViewById(R.id.buttonShowLlamaQuery)
+        submitButton = findViewById(R.id.submitButton)
     }
+
+    private fun submitCurrentVideoFrame(evaluationId: String, sessionToken: String?) {
+        val videoUrl = intent.getStringExtra("video_url") ?: return
+        val mediaItemName = Uri.parse(videoUrl).lastPathSegment ?: return
+        val currentMillis = videoView.currentPosition
+        val baseUrl = "http://10.34.64.205:8080" // Update this to match your backend base path
+
+        val submissionApi = SubmissionApi(baseUrl)
+
+        val answer = org.openapitools.client.models.ApiClientAnswer(
+            mediaItemName = mediaItemName.split(".")[0],
+            mediaItemCollectionName = "V3C1",
+            start = currentMillis.toLong(),
+            end = currentMillis.toLong() + 1000L // example: 1s window
+        )
+
+        val answerSet = org.openapitools.client.models.ApiClientAnswerSet(
+            answers = listOf(answer)
+        )
+
+        val submission = org.openapitools.client.models.ApiClientSubmission(
+            answerSets = listOf(answerSet)
+        )
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = submissionApi.postApiV2SubmitByEvaluationId(evaluationId, submission, sessionToken)
+                Log.i("SUBMIT", "Submission successful: $response")
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@VideoPlayerActivity, "Submitted video frame at ${currentMillis / 1000.0}s", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("SUBMIT", "Submission failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@VideoPlayerActivity, "Submission failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
 
     /**
      * Extracts all of the information / variables from the intent
