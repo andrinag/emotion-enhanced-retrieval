@@ -117,7 +117,7 @@ class VideoPlayerActivity : AppCompatActivity() {
         val videoUrl = intent.getStringExtra("video_url") ?: return
         val mediaItemName = Uri.parse(videoUrl).lastPathSegment ?: return
         val currentMillis = videoView.currentPosition
-        val baseUrl = "http://10.34.64.205:8080" // Update this to match your backend base path
+        val baseUrl = "http://10.34.64.205:8080"
 
         val submissionApi = SubmissionApi(baseUrl)
 
@@ -125,7 +125,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             mediaItemName = mediaItemName.split(".")[0],
             mediaItemCollectionName = "V3C1",
             start = currentMillis.toLong(),
-            end = currentMillis.toLong() + 1000L // example: 1s window
+            end = currentMillis.toLong() + 1000L
         )
 
         val answerSet = org.openapitools.client.models.ApiClientAnswerSet(

@@ -72,7 +72,7 @@ class TaskInformationActivity : AppCompatActivity() {
                     val task = try {
                         api.getApiV2ClientEvaluationCurrentTaskByEvaluationId(evalId, session)
                     } catch (e: Exception) {
-                        null
+                        continue
                     }
                     displayList.add(
                         EvaluationDisplay(
