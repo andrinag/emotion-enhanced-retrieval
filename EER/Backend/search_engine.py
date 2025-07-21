@@ -21,6 +21,8 @@ import logging
 from datetime import datetime
 
 
+logging.basicConfig(filename="search_log.txt", level = logging.INFO, format="%(asctime)s - %(message)s", force=True)
+logging.info("Logger initialized!")
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
@@ -53,9 +55,6 @@ conn = psycopg2.connect(
     port="5432"
 )
 register_vector(conn)
-
-logging.basicConfig(filename="search_log.txt", level = logging.INFO, format="%(asctime)s - %(message)s")
-logging.info("Logger initialized!")
 
 dir_1 = "/media/V3C/V3C1/video-480p/"
 
