@@ -123,7 +123,7 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         val answer = org.openapitools.client.models.ApiClientAnswer(
             mediaItemName = mediaItemName.split(".")[0],
-            mediaItemCollectionName = "V3C1",
+            mediaItemCollectionName = "v3c11",
             start = currentMillis.toLong(),
             end = currentMillis.toLong() + 1000L
         )
@@ -143,6 +143,21 @@ class VideoPlayerActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@VideoPlayerActivity, "Submitted video frame at ${currentMillis / 1000.0}s", Toast.LENGTH_SHORT).show()
+                }
+
+                if (!response.submission.name.contains("WRONG")) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@VideoPlayerActivity, "Correct!", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@VideoPlayerActivity,
+                            "Wrong answer, try again!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("SUBMIT", "Submission failed: ${e.message}")
