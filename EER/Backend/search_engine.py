@@ -17,7 +17,9 @@ from fastapi.responses import JSONResponse
 import numpy as np
 from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import run_in_threadpool
-from sklearn.utils import deprecated
+import logging
+from datetime import datetime
+
 
 # load the clip model
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -52,7 +54,14 @@ conn = psycopg2.connect(
 )
 register_vector(conn)
 
+logging.basicConfig(filename="search_log.txt", level = logging.INFO, format="%(asctime)s - %(message)s",)
+
 dir_1 = "/media/V3C/V3C1/video-480p/"
+
+def log_search(user: str, endpoint: str, query: str, emotion:str = "", extras: dict = None):
+    extras_str = f", extras={extras}" if extras else ""
+    logging.info(f"SEARCH - user={user}, endpoint={endpoint}, query='{query}', emotion='{emotion}'{extras_str}")
+
 
 def normalize_embedding(embedding):
     """
@@ -163,7 +172,9 @@ async def search_image_to_image(file: UploadFile = File(...)):
 #                 TEXT TO IMAGE SEARCH                #
 #######################################################
 @app.get("/search/{query}/{allow_duplicates}")
-async def search_images(query: str, allow_duplicates: bool):
+async def search_images(query: str, allow_duplicates: bool, request: Request):
+    username = request.headers.get("username", "anonymous")
+    log_search(user=username, endpoint="/search", query=query)
     dir_1 = "/media/V3C/V3C1/video-480p/"
     try:
         cursor = conn.cursor()
@@ -221,11 +232,13 @@ async def search_images(query: str, allow_duplicates: bool):
 #                 TEXT TO IMAGE SEARCH WITH EMOTION-ENHANCEMENT               #
 ##############################################################################
 @app.get("/search_combined_face/{query}/{emotion}/{allow_duplicates}")
-async def search_combined_face(query: str, emotion: str, allow_duplicates: bool):
+async def search_combined_face(query: str, emotion: str, allow_duplicates: bool, request: Request):
     """
     Emotion enhanced search for the face modality. Collects the top 1000 most matching embeddings.
     Then filter for emotions. Emotions are only considered if matching, else skip.
     """
+    username = request.headers.get("username", "anonymous")
+    log_search(user=username, endpoint="/search_combined_face", query=query, emotion=emotion)
     cursor = conn.cursor()
 
     try:
@@ -334,11 +347,13 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/search_combined_asr/{query}/{emotion}/{allow_duplicates}")
-async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
+async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool, request: Request):
     """
         Emotion enhanced search for the ASR modality. Collects the top 1000 most matching embeddings.
         Then filter for emotions. Emotions are only considered if matching, else skip.
         """
+    username = request.headers.get("username", "anonymous")
+    log_search(user=username, endpoint="/search_combined_asr", query=query, emotion=emotion)
     dir_1 = "/media/V3C/V3C1/video-480p/"
     cursor = conn.cursor()
     emotion = emotion_mapping(emotion)
@@ -453,11 +468,13 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/search_combined_ocr/{query}/{emotion}/{allow_duplicates}")
-async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
+async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool, request: Request):
     """
     Emotion enhanced search for the OCR modality. Collects the top 1000 most matching embeddings.
     Then filter for emotions. Emotions are only considered if matching, else skip.
     """
+    username = request.headers.get("username", "anonymous")
+    log_search(user=username, endpoint="/search_combined_ocr", query=query, emotion=emotion)
     cursor = conn.cursor()
     emotion = emotion_mapping(emotion)
     print(emotion)
@@ -587,12 +604,14 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool):
 
 
 @app.get("/search_combined_all/{query}/{emotion}/{allow_duplicates}")
-async def search_combined_all(query: str, emotion: str, allow_duplicates: bool):
+async def search_combined_all(query: str, emotion: str, allow_duplicates: bool, request: Request):
     """
     Emotion enhanced search for the all 3 modalities modality. Collects the top 1000 most matching embeddings.
     Then filter for emotions and wieghts it with given formula. In most cases not all three modalities can
     have 1 as score.
     """
+    username = request.headers.get("username", "anonymous")
+    log_search(user=username, endpoint="/search_combined_all", query=query, emotion=emotion)
     cursor = conn.cursor()
     emotion2 = emotion_mapping(emotion)
     print(emotion2)

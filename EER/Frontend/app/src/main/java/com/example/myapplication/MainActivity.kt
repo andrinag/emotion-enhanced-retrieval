@@ -299,8 +299,8 @@ class MainActivity : AppCompatActivity() {
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
-        val stringRequest =
-            StringRequest(Request.Method.GET, url, Response.Listener<String> { response ->
+        val stringRequest = object : StringRequest(Request.Method.GET, url,
+            Response.Listener<String> { response ->
                 Log.i("VOLLEY", "Success! Response: $response")
 
                 try {
@@ -347,21 +347,31 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e("VOLLEY", "JSON Parsing Error: ${e.message}")
                 }
-            }, { error ->
-                Log.e("VOLLEY", "No videos found in response")
-                val noResultsText = findViewById<TextView>(R.id.noResultsText)
-                runOnUiThread {
-                    noResultsText.apply {
-                        text =
-                            "No videos found for '$query' with datatype '$dataType' and emotion '$emotion' ."
-                        visibility = View.VISIBLE
-                        alpha = 1f
-                        animate().alpha(0f).setDuration(2000) // fade out duration 2s
-                            .setStartDelay(2000).withEndAction { visibility = View.GONE }.start()
+            },
+            Response.ErrorListener { error ->
+                Log.e("VOLLEY", "Error: ${error.message}")
+                if (context is android.app.Activity) {
+                    val noResultsText = context.findViewById<TextView>(R.id.noResultsText)
+                    context.runOnUiThread {
+                        noResultsText.apply {
+                            text = "No videos found for '$query' with datatype '$dataType' and emotion '$emotion'."
+                            visibility = View.VISIBLE
+                            alpha = 1f
+                            animate().alpha(0f).setDuration(2000)
+                                .setStartDelay(2000).withEndAction { visibility = View.GONE }.start()
+                        }
                     }
                 }
-
-            })
+            }
+        ) {
+            override fun getHeaders(): MutableMap<String, String> {
+                val headers = HashMap<String, String>()
+                val sharedPrefs = context.getSharedPreferences("UserSettings", Context.MODE_PRIVATE)
+                val username = sharedPrefs.getString("username", "unknown") ?: "unknown"
+                headers["username"] = username
+                return headers
+            }
+        }
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
             100000, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
@@ -386,7 +396,7 @@ class MainActivity : AppCompatActivity() {
 
         val requestQueue: RequestQueue = Volley.newRequestQueue(context)
 
-        val stringRequest =
+        val stringRequest = object:
             StringRequest(Request.Method.GET, url, Response.Listener<String> { response ->
                 Log.i("VOLLEY", "Success! Response: $response")
 
@@ -448,7 +458,17 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-            })
+            }
+            )
+            {
+                override fun getHeaders(): MutableMap<String, String> {
+                    val headers = HashMap<String, String>()
+                    val sharedPrefs = context.getSharedPreferences("UserSettings", Context.MODE_PRIVATE)
+                    val username = sharedPrefs.getString("username", "unknown") ?: "unknown"
+                    headers["username"] = username
+                    return headers
+                }
+            }
 
         stringRequest.retryPolicy = DefaultRetryPolicy(
             100000, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
