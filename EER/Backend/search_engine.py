@@ -54,7 +54,8 @@ conn = psycopg2.connect(
 )
 register_vector(conn)
 
-logging.basicConfig(filename="search_log.txt", level = logging.INFO, format="%(asctime)s - %(message)s",)
+logging.basicConfig(filename="search_log.txt", level = logging.INFO, format="%(asctime)s - %(message)s")
+logging.info("Logger initialized!")
 
 dir_1 = "/media/V3C/V3C1/video-480p/"
 
