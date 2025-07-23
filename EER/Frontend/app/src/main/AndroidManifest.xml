@@ -17,7 +17,7 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MyApp">
         <activity
-            android:name=".LoginActivity"
+            android:name=".MainActivity"
             android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
@@ -30,7 +30,7 @@
         <activity android:name=".VideoPlayerActivity" />
         <activity android:name=".SettingsActivity" />
         <activity android:name=".HelpActivity" />
-        <activity android:name=".MainActivity"/>
+        <activity android:name=".LoginActivity"/>
         <activity android:name=".LlamaQueryActivity" />
         <activity android:name=".TaskInformationActivity"/>
     </application>

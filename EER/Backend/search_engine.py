@@ -209,6 +209,9 @@ async def search_images(query: str, allow_duplicates: bool, request: Request):
             if not os.path.exists(abs_path):
                 continue
 
+            if location.contains("03296.mp4"):
+                continue
+
             if not allow_duplicates and abs_path in seen_videos:
                 continue
 
@@ -324,6 +327,9 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool,
             full_path = os.path.join(dir_1, location)
 
             if not os.path.exists(full_path):
+                continue
+
+            if location.contains("03296.mp4"):
                 continue
 
             if not allow_duplicates:
@@ -445,6 +451,9 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool, 
             full_path = os.path.join(dir_1, location)
 
             if not os.path.exists(full_path):
+                continue
+
+            if location.contains("03296.mp4"):
                 continue
 
             if not allow_duplicates:
@@ -575,6 +584,9 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool, 
             full_path = os.path.join(dir_1, location)
 
             if not os.path.exists(full_path):
+                continue
+
+            if location.contains("03296.mp4"):
                 continue
 
             if not allow_duplicates:
@@ -709,6 +721,9 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool, 
             full_path = os.path.join(dir_1, location)
 
             if not os.path.exists(full_path):
+                continue
+
+            if location.contains("03296.mp4"):
                 continue
 
             if not allow_duplicates:
