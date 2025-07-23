@@ -186,6 +186,7 @@ async def search_images(query: str, allow_duplicates: bool, request: Request):
         SELECT
             (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
             me.frame_time,
+            me.frame_location,
             1 - (me.embedding <=> %s::vector) AS similarity
         FROM multimedia_embeddings me
         ORDER BY similarity DESC
@@ -201,7 +202,7 @@ async def search_images(query: str, allow_duplicates: bool, request: Request):
         response = []
         seen_videos = set()
 
-        for location, frame_time, similarity in result:
+        for location, frame_time, similarity, frame_location in result:
             abs_path = os.path.join(dir_1, location)
 
             if not os.path.exists(abs_path):
@@ -216,6 +217,7 @@ async def search_images(query: str, allow_duplicates: bool, request: Request):
                     "video_path": abs_path,
                     "frame_time": frame_time,
                     "similarity": similarity,
+                    "frame_location": frame_location,
                 }
             )
 

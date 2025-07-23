@@ -28,13 +28,14 @@ class SearchResultsActivity : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.resultsRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.setHasFixedSize(true)
 
         val jsonString = intent.getStringExtra("results_json")
         val jsonArray = JSONArray(jsonString)
         val baseUrl = "http://10.34.64.139:8001"
 
         val videoResults = mutableListOf<VideoResult>()
-        for (i in 0 until jsonArray.length()) {
+        for (i in 0 until 10) {
             val obj = jsonArray.getJSONObject(i)
             val videoUrl = baseUrl + obj.getString("video_path")
             Log.d("VIDEO", "received video path$videoUrl")
@@ -46,7 +47,7 @@ class SearchResultsActivity : AppCompatActivity() {
             annotatedImage = if (annotatedImage.isNotBlank()) "$baseUrl/$annotatedImage" else ""
             frameLocation = if (frameLocation.isNotBlank()) "$baseUrl/$frameLocation" else ""
             Log.d("VIDEO", "received annotated image path$annotatedImage")
-            Log.d("VIDEO", "received frame location image path $frameLocation")
+            Log.d("VIDEO", "received frame location image path $frameLocation") // empty
             videoResults.add(
                 VideoResult(
                     videoUrl,

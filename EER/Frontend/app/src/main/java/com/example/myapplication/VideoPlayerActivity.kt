@@ -123,7 +123,7 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         val answer = org.openapitools.client.models.ApiClientAnswer(
             mediaItemName = mediaItemName.split(".")[0],
-            mediaItemCollectionName = "v3c11",
+            mediaItemCollectionName = "V3C-V3C1",
             start = currentMillis.toLong(),
             end = currentMillis.toLong() + 1000L
         )
@@ -150,7 +150,14 @@ class VideoPlayerActivity : AppCompatActivity() {
                         Toast.makeText(this@VideoPlayerActivity, "Correct!", Toast.LENGTH_SHORT)
                             .show()
                     }
-                } else {
+                } else if (response.submission.name.contains("No running task for Team")) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@VideoPlayerActivity, "Sorry, time is up! Please" +
+                                " skip to the next task.", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                }
+                else {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             this@VideoPlayerActivity,
@@ -260,7 +267,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     val directionResults = mutableListOf<VideoResult>()
                     val baseUrl = "http://10.34.64.139:8001"
 
-                    for (i in 0 until jsonArray.length()) {
+                    for (i in 0 until 10) {
                         val obj = jsonArray.getJSONObject(i)
                         val videoPath = baseUrl + obj.getString("video_path")
                         val frameTime = obj.getDouble("frame_time")

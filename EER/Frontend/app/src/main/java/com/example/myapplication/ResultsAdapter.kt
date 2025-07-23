@@ -74,14 +74,7 @@ class ResultsAdapter(
                 .placeholder(android.R.drawable.ic_menu_report_image)
                 .into(holder.imageView)
         } else {
-            // Otherwise, try to generate a thumbnail from the video
-            val thumbnail = generateVideoThumbnail(item.videoUrl, (item.frameTime * 1000).toLong())
-            if (thumbnail != null) {
-                holder.imageView.setImageBitmap(thumbnail)
-            } else {
-                // Fallback: show a default placeholder if thumbnail generation fails
-                holder.imageView.setImageResource(android.R.drawable.ic_menu_report_image)
-            }
+            holder.imageView.setImageResource(android.R.drawable.ic_menu_report_image)
         }
 
         holder.itemView.setOnClickListener {
