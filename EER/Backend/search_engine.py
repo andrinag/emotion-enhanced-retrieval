@@ -191,7 +191,7 @@ async def search_images(query: str, allow_duplicates: bool, request: Request):
             1 - (me.embedding <=> %s::vector) AS similarity
         FROM multimedia_embeddings me
         ORDER BY similarity DESC
-        LIMIT 20; 
+        LIMIT 40; 
         """, (query_embedding.tolist(),))
 
         result = cursor.fetchall()
@@ -296,7 +296,7 @@ async def search_combined_face(query: str, emotion: str, allow_duplicates: bool,
             FROM scored_faces
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
-            LIMIT 20;
+            LIMIT 40;
         """, (query_embedding.tolist(), emotion_filter))
 
         result = cursor.fetchall()
@@ -416,7 +416,7 @@ async def search_combined_asr(query: str, emotion: str, allow_duplicates: bool, 
             FROM scored_asr
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
-            LIMIT 20;
+            LIMIT 40;
         """, (query_embedding.tolist(), emotion_filter))
 
         result = cursor.fetchall()
@@ -543,7 +543,7 @@ async def search_combined_ocr(query: str, emotion: str, allow_duplicates: bool, 
             FROM scored_ocr
             WHERE emotion_match = 1.0
             ORDER BY combined_score DESC
-            LIMIT 20;
+            LIMIT 40;
         """, (query_embedding.tolist(), emotion.lower()))
 
         result = cursor.fetchall()
@@ -679,7 +679,7 @@ async def search_combined_all(query: str, emotion: str, allow_duplicates: bool, 
             FROM joined
             WHERE face_match + asr_match + ocr_match > 0
             ORDER BY combined_score DESC
-            LIMIT 20;
+            LIMIT 40;
         """, (
             query_embedding.tolist(),
             emotion.lower(),
