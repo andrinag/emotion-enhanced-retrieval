@@ -149,6 +149,7 @@ class MainActivity : AppCompatActivity() {
             val query = editTextQuery.text.toString().trim()
             val dataType = spinnerDataType.selectedItem.toString()
             var emotionSpinner = spinnerEmotion.selectedItem.toString()
+            Log.d("Query", "Emotion is $emotionSpinner")
             if (query.isNotEmpty()) {
                 sendPostRequestSentimentQuery(this, query)
                 if (emotionSpinner == "my current emotion") {
@@ -331,6 +332,7 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("results_json", result.toString())
                         intent.putExtra("currentQuery", query)
                         intent.putExtra("emotion", emotionSpinner)
+                        Log.d("Query", "Sending emotion $emotionSpinner to results adapter")
                         intent.putExtra("dataType", dataType)
                         intent.putExtra("suggestionMode", suggestionMode)
                         intent.putExtra("duplicateVideos", duplicateVideos)
@@ -427,7 +429,8 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("currentQuery", query.toString())
                         intent.putExtra("results_json", result.toString())
                         intent.putExtra("currentQuery", query)
-                        intent.putExtra("emotion", emotionSpinner)
+                        intent.putExtra("emotion", emotion)
+                        Log.d("Query", "Sending emotion $emotion to results adapter")
                         intent.putExtra("dataType", dataType)
                         intent.putExtra("suggestionMode", suggestionMode)
                         intent.putExtra("duplicateVideos", duplicateVideos)

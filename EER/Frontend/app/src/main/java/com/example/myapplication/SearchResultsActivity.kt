@@ -35,7 +35,7 @@ class SearchResultsActivity : AppCompatActivity() {
         val baseUrl = "http://10.34.64.139:8001"
 
         val videoResults = mutableListOf<VideoResult>()
-        for (i in 0 until 10) {
+        for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
             val videoUrl = baseUrl + obj.getString("video_path")
             Log.d("VIDEO", "received video path$videoUrl")
@@ -66,7 +66,7 @@ class SearchResultsActivity : AppCompatActivity() {
         val dataType = intent.getStringExtra("dataType") ?: ""
         val suggestionMode = intent.getStringExtra("suggestionMode") ?: "nearest"
         val duplicateVideos = intent.getBooleanExtra("duplicateVideos", true)
-        Log.d("Query", "Query in Search Result Acitivity is $query")
+        Log.d("Query", "Query in Search Result Acitivity is $query and emotion is $emotionSpinner")
         adapter = ResultsAdapter(
             videoResults, this, query, emotionSpinner, dataType,
             suggestionMode, duplicateVideos

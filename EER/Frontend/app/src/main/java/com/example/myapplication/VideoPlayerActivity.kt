@@ -150,7 +150,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                         Toast.makeText(this@VideoPlayerActivity, "Correct!", Toast.LENGTH_SHORT)
                             .show()
                     }
-                } else if (response.submission.name.contains("No running task for Team")) {
+                } else if (response.description.contains("No running task for Team")) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@VideoPlayerActivity, "Sorry, time is up! Please" +
                                 " skip to the next task.", Toast.LENGTH_SHORT)
@@ -169,7 +169,8 @@ class VideoPlayerActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("SUBMIT", "Submission failed: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@VideoPlayerActivity, "Submission failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@VideoPlayerActivity, "Sorry, time is up! Please skip to " +
+                            "the next task.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -267,7 +268,7 @@ class VideoPlayerActivity : AppCompatActivity() {
                     val directionResults = mutableListOf<VideoResult>()
                     val baseUrl = "http://10.34.64.139:8001"
 
-                    for (i in 0 until 10) {
+                    for (i in 0 until jsonArray.length()) {
                         val obj = jsonArray.getJSONObject(i)
                         val videoPath = baseUrl + obj.getString("video_path")
                         val frameTime = obj.getDouble("frame_time")
