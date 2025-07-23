@@ -25,12 +25,20 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
+        val prefs = getSharedPreferences("UserSettings", MODE_PRIVATE)
+        val username = prefs.getString("username", null)
 
         loginButton = findViewById(R.id.loginButton)
         userlessButton = findViewById(R.id.userlessButton)
         usernameField = findViewById(R.id.usernameField)
         passwordField = findViewById(R.id.passwordField)
 
+        if (username != null) {
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            finish()
+            return
+        }
 
         loginButton.setOnClickListener {
             val username = usernameField.text.toString().trim()
@@ -45,7 +53,7 @@ class LoginActivity : AppCompatActivity() {
 
         userlessButton.setOnClickListener {
             val userPref = getSharedPreferences("UserSettings", MODE_PRIVATE)
-            userPref.edit().putString("username", null).apply()
+            userPref.edit().putString("username", null).commit()
             val intent = Intent(this@LoginActivity, MainActivity::class.java)
             startActivity(intent)
         }

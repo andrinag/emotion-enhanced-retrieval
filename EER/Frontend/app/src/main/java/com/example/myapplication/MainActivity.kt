@@ -105,7 +105,7 @@ class MainActivity : AppCompatActivity() {
         val evaluationId = userPref.getString("evaluationId", null)
         Log.d("EVAL", "EvaluationId $evaluationId")
 
-        if (username != null) {
+        if (!username.isNullOrBlank()) {
             nameText.text = "Hello, $username!"
             logoutButton.visibility = View.VISIBLE
             loginButton.visibility = View.GONE
