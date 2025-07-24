@@ -832,7 +832,7 @@ def emotion_mapping(emotion:str):
 
 
 @app.get("/ask_llama/{query}/{emotion}/{allow_duplicates}")
-async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
+async def send_query_to_llama(query: str, allow_duplicates: bool, emotion:str = ""):
     """ Query Expansion through llama. New search results are also queried in this method. """
     response = await run_in_threadpool(
         requests.post,
@@ -975,7 +975,7 @@ async def send_query_to_llama(query: str, emotion:str, allow_duplicates: bool):
 
 
 @app.get("/search_by_direction_pair/{datatype}/{emotion}/{allow_duplicates}")
-async def search_by_direction_pair(source_id: int, target_id: int, datatype: str, emotion: str, allow_duplicates: bool):
+async def search_by_direction_pair(source_id: int, target_id: int, allow_duplicates: bool, datatype: str = "", emotion: str = ""):
     """
     Computes direction vector from source to target embedding,
     filters results by datatype and emotion that are given by the user in the app.
