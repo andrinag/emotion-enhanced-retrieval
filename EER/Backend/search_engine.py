@@ -832,8 +832,8 @@ def emotion_mapping(emotion:str):
 
 
 @app.get("/ask_llama/{query}/{emotion}/{allow_duplicates}")
-async def send_query_to_llama(query: str, allow_duplicates: bool, emotion:str = ""):
-    """ Query Expansion through llama. New search results are also queried in this method. """
+async def send_query_to_llama(query: str, allow_duplicates: bool, emotion: str):
+    """ Query Expansion through LLaMA. New search results are also queried in this method. """
     response = await run_in_threadpool(
         requests.post,
         "http://localhost:11434/api/generate",
@@ -845,73 +845,112 @@ async def send_query_to_llama(query: str, allow_duplicates: bool, emotion:str = 
         }
     )
 
-    if response.status_code == 200:
-        query = response.json().get("response", "").strip()
-        cursor = conn.cursor()
-        emotion2 = emotion_mapping(emotion)
-        print(emotion2)
-        try:
-            query_embedding = get_embedding(input_text=query.lower())
-            query_embedding = normalize_embedding(query_embedding)
+    if response.status_code != 200:
+        raise Exception(f"Failed to get response from LLaMA. Status code: {response.status_code}")
 
+    query = response.json().get("response", "").strip()
+    query_embedding = normalize_embedding(get_embedding(input_text=query.lower()))
+    cursor = conn.cursor()
+
+    try:
+        if emotion == "empty":
+            # Simple query without emotion filtering
             cursor.execute("""
-                    WITH top_embeddings AS (
-                        SELECT 
-                            me.id AS embedding_id,
-                            mo.location,
-                            me.frame_time,
-                            me.frame_location,
-                            1 - (me.embedding <=> %s::vector) AS similarity
-                        FROM multimedia_embeddings me
-                        JOIN multimedia_objects mo ON mo.object_id = me.object_id
-                        ORDER BY similarity DESC
-                        LIMIT 800
-                    ),
-                    joined AS (
-                        SELECT 
-                            te.embedding_id,
-                            te.location,
-                            te.frame_time,
-                            te.frame_location,
-                            te.similarity,
-                            COALESCE(f.emotion, '') AS face_emotion,
-                            COALESCE(f.confidence, 0.0) AS face_confidence,
-                            COALESCE(a.emotion, '') AS asr_emotion,
-                            COALESCE(a.confidence, 0.0) AS asr_confidence,
-                            COALESCE(o.emotion, '') AS ocr_emotion,
-                            COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
-                            COALESCE(f.path_annotated_faces, '') AS annotated_image,
-                            CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
-                            CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
-                            CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
-                        FROM top_embeddings te
-                        LEFT JOIN Face f ON f.embedding_id = te.embedding_id
-                        LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
-                        LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
-                    )
+                SELECT
+                    (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                    me.frame_time,
+                    me.frame_location,
+                    me.id AS embedding_id,
+                    1 - (me.embedding <=> %s::vector) AS similarity
+                FROM multimedia_embeddings me
+                ORDER BY similarity DESC
+                LIMIT 40; 
+            """, (query_embedding.tolist(),))
+
+            result = cursor.fetchall()
+
+            response_data = []
+            seen_videos = set()
+            for row in result:
+                location, frame_time, frame_location, embedding_id, similarity = row
+                full_path = os.path.join(dir_1, location)
+
+                if not os.path.exists(full_path):
+                    continue
+                if not allow_duplicates and full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+                response_data.append({
+                    "llama_updated_query": query,
+                    "embedding_id": embedding_id,
+                    "video_path": full_path,
+                    "frame_time": float(frame_time),
+                    "similarity": round(float(similarity), 3),
+                    "frame_location": frame_location
+                })
+
+        else:
+            # Emotion-enhanced search
+            emotion2 = emotion_mapping(emotion)
+            cursor.execute("""
+                WITH top_embeddings AS (
                     SELECT 
-                        embedding_id,
-                        location,
-                        frame_time,
-                        frame_location,
-                        similarity,
-                        annotated_image,
-                        face_emotion, face_confidence,
-                        asr_emotion, asr_confidence,
-                        ocr_emotion, ocr_confidence,
-                        (
-                            0.5 * similarity +
-                            0.5 * (
-                                (2.0 / 8.0) * ocr_confidence +
-                                (3.0 / 8.0) * asr_confidence +
-                                (3.0 / 8.0) * face_confidence
-                            )
-                        ) AS combined_score
-                    FROM joined
-                    WHERE face_match + asr_match + ocr_match > 0
-                    ORDER BY combined_score DESC
-                    LIMIT 20;
-                """, (
+                        me.id AS embedding_id,
+                        mo.location,
+                        me.frame_time,
+                        me.frame_location,
+                        1 - (me.embedding <=> %s::vector) AS similarity
+                    FROM multimedia_embeddings me
+                    JOIN multimedia_objects mo ON mo.object_id = me.object_id
+                    ORDER BY similarity DESC
+                    LIMIT 800
+                ),
+                joined AS (
+                    SELECT 
+                        te.embedding_id,
+                        te.location,
+                        te.frame_time,
+                        te.frame_location,
+                        te.similarity,
+                        COALESCE(f.emotion, '') AS face_emotion,
+                        COALESCE(f.confidence, 0.0) AS face_confidence,
+                        COALESCE(a.emotion, '') AS asr_emotion,
+                        COALESCE(a.confidence, 0.0) AS asr_confidence,
+                        COALESCE(o.emotion, '') AS ocr_emotion,
+                        COALESCE(o.sentiment_confidence, 0.0) AS ocr_confidence,
+                        COALESCE(f.path_annotated_faces, '') AS annotated_image,
+                        CASE WHEN LOWER(f.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS face_match,
+                        CASE WHEN LOWER(a.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS asr_match,
+                        CASE WHEN LOWER(o.emotion) = LOWER(%s) THEN 1 ELSE 0 END AS ocr_match
+                    FROM top_embeddings te
+                    LEFT JOIN Face f ON f.embedding_id = te.embedding_id
+                    LEFT JOIN ASR a ON a.embedding_id = te.embedding_id
+                    LEFT JOIN OCR o ON o.embedding_id = te.embedding_id
+                )
+                SELECT 
+                    embedding_id,
+                    location,
+                    frame_time,
+                    frame_location,
+                    similarity,
+                    annotated_image,
+                    face_emotion, face_confidence,
+                    asr_emotion, asr_confidence,
+                    ocr_emotion, ocr_confidence,
+                    (
+                        0.5 * similarity +
+                        0.5 * (
+                            (2.0 / 8.0) * ocr_confidence +
+                            (3.0 / 8.0) * asr_confidence +
+                            (3.0 / 8.0) * face_confidence
+                        )
+                    ) AS combined_score
+                FROM joined
+                WHERE face_match + asr_match + ocr_match > 0
+                ORDER BY combined_score DESC
+                LIMIT 20;
+            """, (
                 query_embedding.tolist(),
                 emotion.lower(),
                 emotion.lower(),
@@ -919,9 +958,8 @@ async def send_query_to_llama(query: str, allow_duplicates: bool, emotion:str = 
             ))
 
             result = cursor.fetchall()
-            cursor.close()
 
-            response = []
+            response_data = []
             seen_videos = set()
             for row in result:
                 (
@@ -942,12 +980,14 @@ async def send_query_to_llama(query: str, allow_duplicates: bool, emotion:str = 
                 if not os.path.exists(full_path):
                     continue
 
-                if not allow_duplicates:
-                    if full_path in seen_videos:
-                        continue
-                    seen_videos.add(full_path)
+                if "03296.mp4" in location:
+                    continue
 
-                response.append({
+                if not allow_duplicates and full_path in seen_videos:
+                    continue
+                seen_videos.add(full_path)
+
+                response_data.append({
                     "llama_updated_query": query,
                     "embedding_id": embedding_id,
                     "video_path": full_path,
@@ -964,18 +1004,19 @@ async def send_query_to_llama(query: str, allow_duplicates: bool, emotion:str = 
                     "ocr_confidence": round(float(ocr_confidence), 3)
                 })
 
-            return JSONResponse(response)
+        return JSONResponse(response_data)
 
-        except Exception as e:
-            print(traceback.format_exc())
-            return JSONResponse({"error": str(e)}, status_code=500)
-    else:
-        raise Exception(f"Failed to get response from LLaMA. Status code: {response.status_code}")
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse({"error": str(e)}, status_code=500)
+    finally:
+        cursor.close()
+
 
 
 
 @app.get("/search_by_direction_pair/{datatype}/{emotion}/{allow_duplicates}")
-async def search_by_direction_pair(source_id: int, target_id: int, allow_duplicates: bool, datatype: str = "", emotion: str = ""):
+async def search_by_direction_pair(source_id: int, target_id: int, allow_duplicates: bool, datatype: str, emotion: str):
     """
     Computes direction vector from source to target embedding,
     filters results by datatype and emotion that are given by the user in the app.
@@ -996,7 +1037,23 @@ async def search_by_direction_pair(source_id: int, target_id: int, allow_duplica
         direction = normalize_embedding(emb_b - emb_a)
         projected = normalize_embedding(emb_b + direction)
 
-        if datatype == "all":
+        if datatype == "empty":
+            filter_query = """
+                SELECT 
+                    me.id,
+                    (SELECT location FROM multimedia_objects WHERE object_id = me.object_id) AS location,
+                    me.frame_time,
+                    me.frame_location,
+                    1 - (me.embedding <=> %s::vector) AS similarity,
+                    NULL AS annotated_image
+                FROM multimedia_embeddings me
+                ORDER BY similarity DESC
+                LIMIT 20;
+            """
+            cursor.execute(filter_query, (projected.tolist(),))
+            results = cursor.fetchall()
+
+        elif datatype == "all":
             filter_query = """
                 SELECT 
                     me.id,
@@ -1079,6 +1136,9 @@ async def search_by_direction_pair(source_id: int, target_id: int, allow_duplica
             full_path = os.path.join(VIDEO_DIRECTORY, location)
 
             if not os.path.exists(full_path):
+                continue
+
+            if "03296.mp4" in location:
                 continue
 
             if not allow_duplicates:
