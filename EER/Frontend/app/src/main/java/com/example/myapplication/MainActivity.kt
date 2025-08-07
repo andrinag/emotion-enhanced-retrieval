@@ -336,6 +336,8 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("dataType", dataType)
                         intent.putExtra("suggestionMode", suggestionMode)
                         intent.putExtra("duplicateVideos", duplicateVideos)
+                        intent.putExtra("emotion_mode", emotionMode)
+                        Log.d("EMOTIONMODE", "Emotion Mode is $emotionMode")
                         startActivity(intent)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {
@@ -434,6 +436,8 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra("dataType", dataType)
                         intent.putExtra("suggestionMode", suggestionMode)
                         intent.putExtra("duplicateVideos", duplicateVideos)
+                        intent.putExtra("emotion_mode", emotionMode)
+                        Log.d("EMOTIONMODE", "Emotion Mode is $emotionMode")
                         startActivity(intent)
                         val imagePath = firstVideo.optString("annotated_image", "")
                         if (imagePath.isNotEmpty()) {

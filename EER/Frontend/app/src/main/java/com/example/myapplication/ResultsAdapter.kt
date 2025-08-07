@@ -23,7 +23,8 @@ class ResultsAdapter(
     private val emotion: String,
     private val dataType: String,
     private val suggestionMode: String,
-    private val duplicateVideos: Boolean
+    private val duplicateVideos: Boolean,
+    private val emotionMode: Boolean
 ) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -90,6 +91,7 @@ class ResultsAdapter(
             intent.putExtra("duplicateVideos", duplicateVideos)
             intent.putExtra("frame_location", item.frameLocation)
             intent.putExtra("previous_embedding_id", item.previousEmbeddingID)
+            intent.putExtra("emotion_mode", emotionMode)
             context.startActivity(intent)
         }
     }
